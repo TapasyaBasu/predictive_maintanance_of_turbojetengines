@@ -1,0 +1,6 @@
+Model,Test RMSE,Test MAE,Test R2,Type
+Linear Regression,44.0,33.0,0.54,Baseline Classical
+Random Forest,29.0,21.0,0.88,Ensemble Bagging
+1D CNN,22.0,15.0,0.91,Deep Convolutional
+XGBoost (Tuned),17.62,11.69,0.8133,Gradient Boosted Trees
+LSTM Network (PyTorch),13.23,9.45,0.891,
