@@ -130,6 +130,7 @@ def predict_single(
     scaler      = None,
     features    : Optional[List[str]] = None,
     lstm_model  = None,
+    lstm_scaler = None,
     models_dir  : str = MODELS_DIR,
 ) -> Dict:
     """
@@ -142,17 +143,19 @@ def predict_single(
         scaler      : pre-loaded scaler (loaded if None).
         features    : ordered feature list (loaded if None).
         lstm_model  : pre-loaded PyTorch LSTM model (loaded if None).
+        lstm_scaler : pre-loaded LSTM scaler (loaded if None).
         models_dir  : path to the models folder.
 
     Returns:
         dict with keys: rul, health_pct, status, status_color, action_directive, cycle_age, model_used
     """
     if xgb_model is None or scaler is None or features is None or (model_type == "lstm" and lstm_model is None):
-        xgb_m, sc, feats, lstm_m = load_artifacts(models_dir)
-        xgb_model  = xgb_model or xgb_m
-        scaler     = scaler or sc
-        features   = features or feats
-        lstm_model = lstm_model or lstm_m
+        xgb_m, sc, feats, lstm_m, lstm_sc = load_artifacts(models_dir)
+        xgb_model   = xgb_model or xgb_m
+        scaler      = scaler or sc
+        features    = features or feats
+        lstm_model  = lstm_model or lstm_m
+        lstm_scaler = lstm_scaler or lstm_sc
 
     df = pd.DataFrame([sensor_data])[features]
 
@@ -193,6 +196,7 @@ def predict_batch(
     scaler      = None,
     features    : Optional[List[str]] = None,
     lstm_model  = None,
+    lstm_scaler = None,
     models_dir  : str = MODELS_DIR,
 ) -> List[Dict]:
     """
@@ -200,17 +204,19 @@ def predict_batch(
     Returns a list of result dicts (same schema as predict_single).
     """
     if xgb_model is None or scaler is None or features is None or (model_type == "lstm" and lstm_model is None):
-        xgb_m, sc, feats, lstm_m = load_artifacts(models_dir)
-        xgb_model  = xgb_model or xgb_m
-        scaler     = scaler or sc
-        features   = features or feats
-        lstm_model = lstm_model or lstm_m
+        xgb_m, sc, feats, lstm_m, lstm_sc = load_artifacts(models_dir)
+        xgb_model   = xgb_model or xgb_m
+        scaler      = scaler or sc
+        features    = features or feats
+        lstm_model  = lstm_model or lstm_m
+        lstm_scaler = lstm_scaler or lstm_sc
 
     df = pd.DataFrame(rows)[features]
     norm_type = model_type.lower().strip()
 
     if norm_type in ("lstm", "torch", "deep_learning") and lstm_model is not None and TORCH_AVAILABLE:
-        scaled_vals = scaler.transform(df)
+        active_scaler = lstm_scaler if lstm_scaler is not None else scaler
+        scaled_vals = active_scaler.transform(df)
         # Generate sequence batch (each row as sequence of length SEQUENCE_LENGTH)
         # Shape: (N, 30, 13)
         seq_batch = np.repeat(scaled_vals[:, np.newaxis, :], SEQUENCE_LENGTH, axis=1)

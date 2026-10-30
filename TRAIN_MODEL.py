@@ -126,17 +126,19 @@ joblib.dump(scaler, os.path.join(MDL_DIR, 'scaler.pkl'))
 with open(os.path.join(MDL_DIR, 'feature_list.json'), 'w') as f:
     json.dump(SELECTED_SENSORS, f)
 
-comp = pd.DataFrame([{
-    'Model'    : 'XGBoost (Final)',
-    'Test RMSE': round(test_rmse, 2),
-    'Test MAE' : round(test_mae, 2),
-    'Test R2'  : round(test_r2, 4),
+# Save internal validation metrics
+val_metrics = pd.DataFrame([{
+    'Model'          : 'XGBoost (Internal Validation Split)',
+    'Validation RMSE': round(test_rmse, 2),
+    'Validation MAE' : round(test_mae, 2),
+    'Validation R2'  : round(test_r2, 4),
 }])
-comp.to_csv(os.path.join(MDL_DIR, 'model_comparison.csv'), index=False)
+val_metrics.to_csv(os.path.join(MDL_DIR, 'validation_results.csv'), index=False)
 
 print("   [SAVED] models/final_model.pkl")
 print("   [SAVED] models/scaler.pkl")
 print("   [SAVED] models/feature_list.json")
+print("   [SAVED] models/validation_results.csv")
 
 print("\n" + "="*60)
 print("  MODEL TRAINING COMPLETE!")

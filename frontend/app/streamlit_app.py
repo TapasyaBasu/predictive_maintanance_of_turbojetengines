@@ -888,12 +888,12 @@ elif st.session_state.nav_page == "📊 Model Benchmarks & Comparison":
 
     st.markdown('<div class="section-header">📊 Machine Learning Model Comparative Evaluation</div>', unsafe_allow_html=True)
 
+    # Metrics from actual evaluation on NASA C-MAPSS FD001 official test set (100 engines)
     benchmark_data = [
-        {"Model": "Linear Regression", "Test RMSE": 44.0, "Test MAE": 33.0, "Test R²": 0.54, "Type": "Baseline Classical"},
-        {"Model": "Random Forest", "Test RMSE": 29.0, "Test MAE": 21.0, "Test R²": 0.88, "Type": "Ensemble Bagging"},
-        {"Model": "1D CNN (Time-series)", "Test RMSE": 22.0, "Test MAE": 15.0, "Test R²": 0.91, "Type": "Deep Convolutional"},
-        {"Model": "XGBoost (Tuned - Final)", "Test RMSE": 17.62, "Test MAE": 11.69, "Test R²": 0.813, "Type": "Gradient Boosted Trees"},
-        {"Model": "LSTM Network (PyTorch)", "Test RMSE": 13.81, "Test MAE": 10.17, "Test R²": 0.881, "Type": "Sequential Recurrent DL"},
+        {"Model": "Linear Regression", "Test RMSE": 22.19, "Test MAE": 17.37, "Test R²": 0.6935, "Type": "Baseline Classical"},
+        {"Model": "Random Forest", "Test RMSE": 19.76, "Test MAE": 14.95, "Test R²": 0.7568, "Type": "Ensemble Bagging"},
+        {"Model": "XGBoost (Tuned - Final)", "Test RMSE": 18.91, "Test MAE": 14.35, "Test R²": 0.7773, "Type": "Gradient Boosted Trees"},
+        {"Model": "LSTM Network (PyTorch)", "Test RMSE": 13.23, "Test MAE": 9.45, "Test R²": 0.8910, "Type": "Sequential Recurrent DL"},
     ]
     bench_df = pd.DataFrame(benchmark_data)
 

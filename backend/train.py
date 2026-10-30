@@ -157,18 +157,18 @@ def train(data_dir: str = DATA_DIR, models_dir: str = MODELS_DIR) -> dict:
     with open(os.path.join(models_dir, "feature_list.json"), "w") as fh:
         json.dump(SELECTED_SENSORS, fh)
 
-    comparison = pd.DataFrame([{
-        "Model"    : "XGBoost (Final)",
-        "Test RMSE": round(result["test_rmse"], 2),
-        "Test MAE" : round(result["test_mae"],  2),
-        "Test R2"  : round(result["test_r2"],   4),
+    val_metrics = pd.DataFrame([{
+        "Model"          : "XGBoost (Internal Validation Split)",
+        "Validation RMSE": round(result["test_rmse"], 2),
+        "Validation MAE" : round(result["test_mae"],  2),
+        "Validation R2"  : round(result["test_r2"],   4),
     }])
-    comparison.to_csv(os.path.join(models_dir, "model_comparison.csv"), index=False)
+    val_metrics.to_csv(os.path.join(models_dir, "validation_results.csv"), index=False)
 
     print(f"   [SAVED] {models_dir}/final_model.pkl")
     print(f"   [SAVED] {models_dir}/scaler.pkl")
     print(f"   [SAVED] {models_dir}/feature_list.json")
-    print(f"   [SAVED] {models_dir}/model_comparison.csv")
+    print(f"   [SAVED] {models_dir}/validation_results.csv")
 
     print("\n" + "=" * 60)
     print("  MODEL TRAINING COMPLETE!")

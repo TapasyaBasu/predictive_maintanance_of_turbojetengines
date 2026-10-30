@@ -12,7 +12,7 @@
 | Feature | Description |
 |---|---|
 | 📁 Dataset | NASA C-MAPSS (FD001–FD004) |
-| 🔬 Primary ML Model | Tuned XGBoost Regressor (Test RMSE: 17.62 cycles) |
+| 🔬 Primary ML Model | Tuned XGBoost Regressor (Test RMSE: 18.91 cycles) |
 | 🧬 Deep Learning Model | 2-Layer PyTorch LSTM Network (Test RMSE: 13.23 cycles) |
 | 📊 Dashboard | Streamlit — manual sensor input + CSV fleet upload |
 | 🚀 Backend | FastAPI REST API — single & batch inference supporting both models |
@@ -145,9 +145,8 @@ Evaluation performed on 100 unseen test turbofan engines from NASA C-MAPSS FD001
 
 | Model Architecture | Test RMSE (Cycles) | Test MAE (Cycles) | Test R² | Model Type |
 |---|---|---|---|---|
-| Linear Regression | 44.00 | 33.00 | 0.5400 | Baseline Classical |
-| Random Forest | 29.00 | 21.00 | 0.8800 | Ensemble Bagging |
-| 1D CNN | 22.00 | 15.00 | 0.9100 | Deep Convolutional |
+| Linear Regression | 22.19 | 17.37 | 0.6935 | Baseline Classical |
+| Random Forest | 19.76 | 14.95 | 0.7568 | Ensemble Bagging |
 | **XGBoost Regressor** | **18.91** | **14.35** | **0.7773** | Gradient Boosted Trees |
 | **LSTM Network (PyTorch)** | **13.23** | **9.45** | **0.8910** | Sequential Recurrent DL |
 

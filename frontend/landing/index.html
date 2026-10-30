@@ -578,8 +578,8 @@
       <div class="section-tag">Benchmarks</div>
       <div class="section-title">Model Performance</div>
       <p class="section-sub">
-        Evaluated on a held-out 20% split of all four C-MAPSS subsets (FD001–FD004).
-        XGBoost with hyperparameter tuning achieves the best balance of accuracy and speed.
+        Evaluated on the NASA C-MAPSS FD001 official test set (100 unseen engines) with ground truth RUL from <code>RUL_FD001.txt</code>.
+        LSTM Network achieves the lowest RMSE of 13.23 cycles.
       </p>
 
       <div class="perf-grid">
@@ -595,33 +595,27 @@
           <tbody>
             <tr>
               <td>Linear Regression</td>
-              <td>~55</td>
-              <td>~42</td>
-              <td>~0.72</td>
+              <td>22.19</td>
+              <td>17.37</td>
+              <td>0.694</td>
             </tr>
             <tr>
               <td>Random Forest</td>
-              <td>~29</td>
-              <td>~21</td>
-              <td>~0.91</td>
-            </tr>
-            <tr>
-              <td>CNN (Sequence)</td>
-              <td>~22</td>
-              <td>~16</td>
-              <td>~0.91</td>
+              <td>19.76</td>
+              <td>14.95</td>
+              <td>0.757</td>
             </tr>
             <tr>
               <td>LSTM Network (PyTorch)</td>
-              <td>13.8</td>
-              <td>10.2</td>
-              <td>0.88</td>
+              <td>13.23</td>
+              <td>9.45</td>
+              <td>0.891</td>
             </tr>
             <tr class="best">
-              <td><strong>XGBoost Tuned</strong><span class="badge-best">Deployed</span></td>
-              <td><strong>17.6</strong></td>
-              <td><strong>11.7</strong></td>
-              <td><strong>0.81</strong></td>
+              <td><strong>XGBoost Tuned</strong><span class="badge-best">Production</span></td>
+              <td><strong>18.91</strong></td>
+              <td><strong>14.35</strong></td>
+              <td><strong>0.777</strong></td>
             </tr>
           </tbody>
         </table>
@@ -631,46 +625,37 @@
             <div class="bar-row fade-in">
               <div class="bar-meta">
                 <span class="bar-name">Linear Regression</span>
-                <span class="bar-score">R² ≈ 0.54</span>
+                <span class="bar-score">R² ≈ 0.69</span>
               </div>
               <div class="bar-track">
-                <div class="bar-fill lr" data-width="54%" style="width:0%"></div>
+                <div class="bar-fill lr" data-width="69%" style="width:0%"></div>
               </div>
             </div>
             <div class="bar-row fade-in" style="transition-delay:0.1s;">
               <div class="bar-meta">
                 <span class="bar-name">Random Forest</span>
-                <span class="bar-score">R² ≈ 0.88</span>
+                <span class="bar-score">R² ≈ 0.76</span>
               </div>
               <div class="bar-track">
-                <div class="bar-fill rf" data-width="88%" style="width:0%"></div>
+                <div class="bar-fill rf" data-width="76%" style="width:0%"></div>
               </div>
             </div>
             <div class="bar-row fade-in" style="transition-delay:0.2s;">
               <div class="bar-meta">
-                <span class="bar-name">CNN (Sequence)</span>
-                <span class="bar-score">R² ≈ 0.91</span>
+                <span class="bar-name">LSTM Network (PyTorch)</span>
+                <span class="bar-score">R² ≈ 0.89 (RMSE 13.23)</span>
               </div>
               <div class="bar-track">
-                <div class="bar-fill cnn" data-width="91%" style="width:0%"></div>
+                <div class="bar-fill cnn" data-width="89%" style="width:0%; background: linear-gradient(90deg, #8b5cf6, #a855f7);"></div>
               </div>
             </div>
             <div class="bar-row fade-in" style="transition-delay:0.3s;">
               <div class="bar-meta">
-                <span class="bar-name">LSTM Network (PyTorch)</span>
-                <span class="bar-score">R² ≈ 0.88 (RMSE 13.8)</span>
-              </div>
-              <div class="bar-track">
-                <div class="bar-fill cnn" data-width="88%" style="width:0%; background: linear-gradient(90deg, #8b5cf6, #a855f7);"></div>
-              </div>
-            </div>
-            <div class="bar-row fade-in" style="transition-delay:0.4s;">
-              <div class="bar-meta">
                 <span class="bar-name">⭐ XGBoost (Production)</span>
-                <span class="bar-score">R² ≈ 0.81 (RMSE 17.6)</span>
+                <span class="bar-score">R² ≈ 0.78 (RMSE 18.91)</span>
               </div>
               <div class="bar-track">
-                <div class="bar-fill xgb" data-width="81%" style="width:0%"></div>
+                <div class="bar-fill xgb" data-width="78%" style="width:0%"></div>
               </div>
             </div>
           </div>
@@ -678,7 +663,7 @@
           <div class="perf-cta">
             <strong>XGBoost Tuned</strong> was selected for the live production dashboard
             due to its sub-15 ms inference latency on CPU, while the <strong>LSTM Network</strong>
-            demonstrates deep temporal degradation modelling with an impressive 13.8 cycles RMSE.
+            demonstrates deep temporal degradation modelling with an impressive 13.23 cycles RMSE.
           </div>
         </div>
       </div>
