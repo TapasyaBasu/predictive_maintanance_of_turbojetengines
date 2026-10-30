@@ -32,7 +32,8 @@ print("[OK] Backend started (PID:", backend_proc.pid, ")")
 time.sleep(2)
 
 frontend_proc = subprocess.Popen(
-    [sys.executable, '-m', 'streamlit', 'run', 'streamlit_app.py'],
+    [sys.executable, '-m', 'streamlit', 'run', 'streamlit_app.py',
+     '--server.headless', 'true', '--server.port', '8501'],
     cwd=os.path.join(BASE, 'frontend', 'app')
 )
 print("[OK] Frontend started (PID:", frontend_proc.pid, ")")

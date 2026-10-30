@@ -95,7 +95,8 @@ print("  STREAMLIT APPLICATION IN-PROCESS EXECUTION TEST")
 print("=" * 65)
 
 # Read and execute streamlit_app.py
-app_file = os.path.join("frontend", "app", "streamlit_app.py")
+BASE = os.path.dirname(os.path.abspath(__file__))
+app_file = os.path.join(BASE, "frontend", "app", "streamlit_app.py")
 with open(app_file, encoding="utf-8") as f:
     app_code = f.read()
 

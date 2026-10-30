@@ -1,3 +1,6 @@
+[server]
+headless = true
+
 [ui]
 hideTopBar = false
 
@@ -6,3 +9,4 @@ gatherUsageStats = false
 
 [client]
 toolbarMode = "minimal"
+

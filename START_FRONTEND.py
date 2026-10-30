@@ -20,7 +20,8 @@ print("  Dashboard: http://localhost:8501")
 print("=" * 50 + "\n")
 
 subprocess.run(
-    [sys.executable, '-m', 'streamlit', 'run', 'streamlit_app.py'],
+    [sys.executable, '-m', 'streamlit', 'run', 'streamlit_app.py',
+     '--server.headless', 'true'],
     cwd=APP
 )
 

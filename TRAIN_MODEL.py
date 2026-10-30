@@ -142,5 +142,5 @@ print("   [SAVED] models/validation_results.csv")
 
 print("\n" + "="*60)
 print("  MODEL TRAINING COMPLETE!")
-print("  Now run:  python LAUNCH_APP.py")
+print("  Now run:  python RUN_ALL.py")
 print("="*60 + "\n")

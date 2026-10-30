@@ -373,7 +373,7 @@ BASELINE_HEALTHY = {
 
 PRESETS = {
     "healthy": {
-        'label': '🟢 Nominal / Factory Benchmark (Cycle 1)',
+        'label': '🟢 Nominal',
         'Cycle': 1,
         'SensorMeasure2' : 641.82,  'SensorMeasure3' : 1589.70,
         'SensorMeasure4' : 1400.60, 'SensorMeasure7' : 554.36,
@@ -383,7 +383,7 @@ PRESETS = {
         'SensorMeasure20': 39.06,   'SensorMeasure21': 23.419,
     },
     "warning": {
-        'label': '🟡 Degradation Phase / Fleet Mid-Life (Cycle 100)',
+        'label': '🟡 Advisory',
         'Cycle': 100,
         'SensorMeasure2' : 643.75,  'SensorMeasure3' : 1598.40,
         'SensorMeasure4' : 1418.20, 'SensorMeasure7' : 556.10,
@@ -393,7 +393,7 @@ PRESETS = {
         'SensorMeasure20': 38.75,   'SensorMeasure21': 23.15,
     },
     "critical": {
-        'label': '🔴 Severe Wear / End-of-Life (Cycle 185)',
+        'label': '🔴 Critical',
         'Cycle': 185,
         'SensorMeasure2' : 646.90,  'SensorMeasure3' : 1614.50,
         'SensorMeasure4' : 1447.60, 'SensorMeasure7' : 558.80,
@@ -597,19 +597,19 @@ elif st.session_state.nav_page == "🎛️ Single-Engine Telemetry (Manual)":
 
     p_col1, p_col2, p_col3, p_col4 = st.columns([1, 1, 1, 1.2])
     with p_col1:
-        if st.button("🟢 Nominal Engine\n(Cycle 1)", use_container_width=True):
+        if st.button("🟢 Nominal", use_container_width=True):
             for k, v in PRESETS['healthy'].items():
                 if k != 'label':
                     st.session_state.sensor_vals[k] = v
             st.rerun()
     with p_col2:
-        if st.button("🟡 Advisory Wear\n(Cycle 100)", use_container_width=True):
+        if st.button("🟡 Advisory", use_container_width=True):
             for k, v in PRESETS['warning'].items():
                 if k != 'label':
                     st.session_state.sensor_vals[k] = v
             st.rerun()
     with p_col3:
-        if st.button("🔴 Critical Exhaustion\n(Cycle 185)", use_container_width=True):
+        if st.button("🔴 Critical", use_container_width=True):
             for k, v in PRESETS['critical'].items():
                 if k != 'label':
                     st.session_state.sensor_vals[k] = v

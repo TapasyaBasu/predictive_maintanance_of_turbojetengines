@@ -64,6 +64,10 @@ NASA_Turbofan_JetEngine_RUL/
 ├── TRAIN_MODEL.py               # Trains XGBoost regressor
 ├── TRAIN_LSTM.py                # Trains sequential LSTM neural network
 ├── TEST_MODEL.py                # Evaluates both XGBoost & LSTM on test engines
+├── test_api_client.py           # Verification script for FastAPI endpoints
+├── test_frontend.py             # Verification script for Streamlit frontend
+├── verify_all_subsets.py        # Verification script for FD001–FD004 subsets
+├── verify_inference_match.py    # Verification script for API vs standalone inference
 ├── requirements.txt             # Global Python requirements
 └── README.md
 ```
@@ -186,6 +190,36 @@ python TRAIN_LSTM.py
 
 # Run comparative test evaluation on unseen engines
 python TEST_MODEL.py
+```
+
+### Option 4: Run Verification Tests
+```bash
+# Verify API endpoints & batch prediction logic
+python test_api_client.py
+
+# Verify Streamlit frontend components headlessly
+python test_frontend.py
+
+# Verify API vs standalone inference consistency
+python verify_inference_match.py
+
+# Audit all 4 NASA C-MAPSS subsets (FD001–FD004)
+python verify_all_subsets.py
+```
+
+### Option 4: Run Verification Tests
+```bash
+# Verify API endpoints & batch prediction logic
+python test_api_client.py
+
+# Verify Streamlit frontend components headlessly
+python test_frontend.py
+
+# Verify API vs standalone inference consistency
+python verify_inference_match.py
+
+# Audit all 4 NASA C-MAPSS subsets (FD001–FD004)
+python verify_all_subsets.py
 ```
 
 ---
