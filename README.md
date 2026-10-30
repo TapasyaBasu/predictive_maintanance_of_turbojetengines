@@ -57,16 +57,12 @@ NASA_Turbofan_JetEngine_RUL/
 │   ├── Week5_XGBoost_LinearRegression.ipynb
 │   ├── Week5_LSTM_RUL_Prediction.ipynb
 │   └── Week6_Model_Evaluation_Comparison.ipynb
-├── report/                      # Project deliverables
-│   ├── Final_Presentation.pptx
-│   └── Final_Project_Report.docx
 ├── RUN_ALL.py                   # One-click launcher for backend + frontend
 ├── START_BACKEND.py             # Dedicated backend launcher
 ├── START_FRONTEND.py            # Dedicated frontend launcher
 ├── TRAIN_MODEL.py               # Trains XGBoost regressor
 ├── TRAIN_LSTM.py                # Trains sequential LSTM neural network
 ├── TEST_MODEL.py                # Evaluates both XGBoost & LSTM on test engines
-├── GENERATE_REPORT.py           # Generates project report and presentation
 ├── requirements.txt             # Global Python requirements
 └── README.md
 ```
