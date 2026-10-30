@@ -54,6 +54,7 @@ NASA_Turbofan_JetEngine_RUL/
 ├── notebooks/                   # Project analysis and training notebooks
 │   ├── Exploratory Data Analysis of Turbo Engine data set.ipynb
 │   ├── Making_Training and Test_Data_set.ipynb
+│   ├── Week4_Feature_Engineering.ipynb
 │   ├── Week5_XGBoost_LinearRegression.ipynb
 │   ├── Week5_LSTM_RUL_Prediction.ipynb
 │   └── Week6_Model_Evaluation_Comparison.ipynb

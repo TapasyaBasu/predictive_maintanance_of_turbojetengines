@@ -126,7 +126,7 @@ SEQUENCE_LENGTH = 30      # time-window for LSTM
 @app.on_event("startup")
 def load_model_on_startup() -> None:
     """Load model artifacts once when the server starts."""
-    global _xgb_model, _lstm_model, _scaler, _features, _model_loaded, _lstm_loaded, _load_error, _load_time_ms
+    global _xgb_model, _lstm_model, _scaler, _lstm_scaler, _features, _model_loaded, _lstm_loaded, _load_error, _load_time_ms
     t0 = time.perf_counter()
     try:
         # Load XGBoost model & Scaler
@@ -276,7 +276,8 @@ def _predict_single_core(sensor: SensorInput, model_type: str = "xgboost") -> Pr
     norm_type = model_type.lower().strip()
 
     if norm_type in ("lstm", "torch", "deep_learning") and _lstm_loaded and _lstm_model is not None:
-        scaled_vals = _scaler.transform(df)
+        active_scaler = _lstm_scaler if _lstm_scaler is not None else _scaler
+        scaled_vals = active_scaler.transform(df)
         seq = np.repeat(scaled_vals, SEQUENCE_LENGTH, axis=0)
         seq_tensor = torch.tensor(seq, dtype=torch.float32).unsqueeze(0)
         with torch.no_grad():
@@ -478,7 +479,8 @@ def predict_batch(
             df   = pd.DataFrame(rows)[_features]
 
             if norm_type in ("lstm", "torch", "deep_learning") and _lstm_loaded and _lstm_model is not None:
-                scaled_vals = _scaler.transform(df)
+                active_scaler = _lstm_scaler if _lstm_scaler is not None else _scaler
+                scaled_vals = active_scaler.transform(df)
                 seq_batch   = np.repeat(scaled_vals[:, np.newaxis, :], SEQUENCE_LENGTH, axis=1)
                 seq_tensor  = torch.tensor(seq_batch, dtype=torch.float32)
                 with torch.no_grad():
