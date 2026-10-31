@@ -30,6 +30,30 @@ st.set_page_config(
 # ─── Theme & Navigation State ────────────────────────────────────────────────
 if "nav_page" not in st.session_state:
     st.session_state.nav_page = "🏠 Front Page (Project Overview)"
+if "sidebar_nav_radio" not in st.session_state:
+    st.session_state["sidebar_nav_radio"] = "🏠 Front Page (Project Overview)"
+if "prev_page" not in st.session_state:
+    st.session_state.prev_page = "🏠 Front Page (Project Overview)"
+
+def navigate_to(page_name):
+    if page_name != st.session_state.nav_page:
+        st.session_state.prev_page = st.session_state.nav_page
+        st.session_state.nav_page = page_name
+        st.session_state["sidebar_nav_radio"] = page_name
+
+def go_back(fallback_page="🏠 Front Page (Project Overview)"):
+    target = st.session_state.get("prev_page", fallback_page)
+    if not target or target == st.session_state.nav_page:
+        target = fallback_page
+    st.session_state.prev_page = st.session_state.nav_page
+    st.session_state.nav_page = target
+    st.session_state["sidebar_nav_radio"] = target
+
+def on_sidebar_nav_change():
+    new_page = st.session_state.get("sidebar_nav_radio")
+    if new_page and new_page != st.session_state.nav_page:
+        st.session_state.prev_page = st.session_state.nav_page
+        st.session_state.nav_page = new_page
 
 with st.sidebar:
     st.markdown("### 🎨 Display Theme")
@@ -165,13 +189,114 @@ html, body, [class*="css"] {{
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 }}
 
-.stDeployButton, [data-testid="stToolbar"], #MainMenu, footer {{
+.stDeployButton, #MainMenu, footer {{
     display: none !important;
     visibility: hidden !important;
 }}
 
+/* Ensure toolbar stays visible so expand sidebar button is never hidden */
+[data-testid="stToolbar"] {{
+    display: flex !important;
+    visibility: visible !important;
+    background: transparent !important;
+}}
+
+header[data-testid="stHeader"] {{
+    background: transparent !important;
+    z-index: 999990 !important;
+}}
+
+/* Visible, styled expand button when sidebar is collapsed (both selectors supported) */
+[data-testid="stExpandSidebarButton"], [data-testid="stSidebarCollapsedControl"] {{
+    display: inline-flex !important;
+    visibility: visible !important;
+    position: fixed !important;
+    top: 10px !important;
+    left: 14px !important;
+    z-index: 999999 !important;
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+    border: 1px solid rgba(56, 189, 248, 0.6) !important;
+    border-radius: 8px !important;
+    padding: 0.4rem 0.95rem !important;
+    box-shadow: 0 4px 15px rgba(2, 132, 199, 0.4) !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}}
+
+[data-testid="stExpandSidebarButton"] button, [data-testid="stSidebarCollapsedControl"] button {{
+    background: transparent !important;
+    border: none !important;
+    color: #ffffff !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.45rem !important;
+    padding: 0 !important;
+}}
+
+[data-testid="stExpandSidebarButton"]::after, [data-testid="stSidebarCollapsedControl"] button::after {{
+    content: " 🧭 Open Sidebar Menu";
+    font-family: 'Plus Jakarta Sans', -apple-system, sans-serif !important;
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+    white-space: nowrap !important;
+    margin-left: 0.35rem !important;
+}}
+
+[data-testid="stExpandSidebarButton"]:hover, [data-testid="stSidebarCollapsedControl"]:hover {{
+    background: linear-gradient(135deg, #0369a1 0%, #075985 100%) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 20px rgba(2, 132, 199, 0.6) !important;
+}}
+
+[data-testid="stExpandSidebarButton"] svg, [data-testid="stSidebarCollapsedControl"] svg {{
+    fill: #ffffff !important;
+    stroke: #ffffff !important;
+    width: 1.15rem !important;
+    height: 1.15rem !important;
+}}
+
+/* Clear, styled collapse button inside the sidebar */
+[data-testid="stSidebarCollapseButton"] {{
+    display: flex !important;
+    visibility: visible !important;
+}}
+
+[data-testid="stSidebarCollapseButton"] button {{
+    background: rgba(56, 189, 248, 0.12) !important;
+    border: 1px solid rgba(56, 189, 248, 0.35) !important;
+    border-radius: 8px !important;
+    color: #38bdf8 !important;
+    padding: 0.35rem 0.75rem !important;
+    font-weight: 600 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.4rem !important;
+    transition: all 0.2s ease !important;
+}}
+
+[data-testid="stSidebarCollapseButton"] button::after {{
+    content: " ◀ Close Sidebar";
+    font-family: 'Plus Jakarta Sans', -apple-system, sans-serif !important;
+    font-size: 0.78rem !important;
+    font-weight: 700 !important;
+    color: #38bdf8 !important;
+    white-space: nowrap !important;
+}}
+
+[data-testid="stSidebarCollapseButton"] button:hover {{
+    background: rgba(56, 189, 248, 0.25) !important;
+    border-color: rgba(56, 189, 248, 0.6) !important;
+}}
+
+[data-testid="stSidebarCollapseButton"] svg {{
+    fill: #38bdf8 !important;
+    stroke: #38bdf8 !important;
+}}
+
 .block-container {{
-    padding-top: 1.5rem;
+    padding-top: 3.5rem !important;
     padding-bottom: 2.5rem;
     max-width: 95% !important;
 }}
@@ -261,6 +386,27 @@ div.stButton > button {{
 </style>
 """, unsafe_allow_html=True)
 
+# ─── Self-Healing Sidebar State Restoration ──────────────────────────────────
+st.markdown("""
+<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" onload="(function(el){
+    try {
+        const doc = window.parent.document;
+        for (let i = 0; i < window.localStorage.length; i++) {
+            const k = window.localStorage.key(i);
+            if (k && k.indexOf('stSidebarCollapsed') !== -1) {
+                window.localStorage.removeItem(k);
+            }
+        }
+        const expandBtn = doc.querySelector('[data-testid=\\'stExpandSidebarButton\\'] button, [data-testid=\\'stExpandSidebarButton\\'], [data-testid=\\'stSidebarCollapsedControl\\'] button');
+        const sb = doc.querySelector('[data-testid=\\'stSidebar\\']');
+        if (expandBtn && (!sb || sb.getAttribute('data-collapsed') === 'true')) {
+            expandBtn.click();
+        }
+    } catch(e) {}
+    el.remove();
+})(this)" style="display:none;" />
+""", unsafe_allow_html=True)
+
 # ─── Backend Health Check ─────────────────────────────────────────────────────
 @st.cache_data(ttl=15)
 def check_backend_health():
@@ -283,24 +429,25 @@ NAV_PAGES = [
 ]
 
 with st.sidebar:
+    if st.session_state.nav_page != "🏠 Front Page (Project Overview)":
+        st.button(
+            "🏠 Return to Front Page",
+            key="sb_back_to_home",
+            use_container_width=True,
+            on_click=navigate_to,
+            args=("🏠 Front Page (Project Overview)",)
+        )
+        st.markdown("---")
+
     st.markdown("### 🧭 Navigation")
     
-    # Sync with session state
-    try:
-        current_idx = NAV_PAGES.index(st.session_state.nav_page)
-    except ValueError:
-        current_idx = 0
-
-    selected_nav = st.radio(
+    st.radio(
         "Navigation",
         NAV_PAGES,
-        index=current_idx,
         key="sidebar_nav_radio",
+        on_change=on_sidebar_nav_change,
         label_visibility="collapsed"
     )
-    if selected_nav != st.session_state.nav_page:
-        st.session_state.nav_page = selected_nav
-        st.rerun()
 
     st.markdown("---")
     st.markdown("### 🧠 Active Model")
@@ -463,17 +610,30 @@ if st.session_state.nav_page == "🏠 Front Page (Project Overview)":
     # Call to Action Buttons
     cta1, cta2, cta3, cta4 = st.columns(4)
     with cta1:
-        if st.button("🚀 Launch Live Diagnostics Console", type="primary", use_container_width=True):
-            st.session_state.nav_page = "🎛️ Single-Engine Telemetry (Manual)"
-            st.rerun()
+        st.button(
+            "🚀 Launch Live Diagnostics Console",
+            type="primary",
+            use_container_width=True,
+            on_click=navigate_to,
+            args=("🎛️ Single-Engine Telemetry (Manual)",),
+            key="cta_btn_p2"
+        )
     with cta2:
-        if st.button("📂 Fleet Batch CSV Analytics", use_container_width=True):
-            st.session_state.nav_page = "📂 Batch Fleet Analysis (CSV Upload)"
-            st.rerun()
+        st.button(
+            "📂 Fleet Batch CSV Analytics",
+            use_container_width=True,
+            on_click=navigate_to,
+            args=("📂 Batch Fleet Analysis (CSV Upload)",),
+            key="cta_btn_p3"
+        )
     with cta3:
-        if st.button("📊 View Model Benchmarks", use_container_width=True):
-            st.session_state.nav_page = "📊 Model Benchmarks & Comparison"
-            st.rerun()
+        st.button(
+            "📊 View Model Benchmarks",
+            use_container_width=True,
+            on_click=navigate_to,
+            args=("📊 Model Benchmarks & Comparison",),
+            key="cta_btn_p4"
+        )
     with cta4:
         st.markdown(
             f'<a href="http://localhost:8000/landing" target="_blank" style="display:block; text-align:center; padding:0.5rem; background:#0284c7; color:#fff; border-radius:8px; font-weight:600; text-decoration:none;">🌐 Standalone Web Landing ↗</a>',
@@ -589,6 +749,12 @@ if st.session_state.nav_page == "🏠 Front Page (Project Overview)":
 # PAGE 2: 🎛️ SINGLE-ENGINE TELEMETRY DIAGNOSTICS
 # ══════════════════════════════════════════════════════════════════════════════
 elif st.session_state.nav_page == "🎛️ Single-Engine Telemetry (Manual)":
+
+    b_nav1, b_nav2 = st.columns([1.8, 8.2])
+    with b_nav1:
+        st.button("⬅️ Back to Front Page", key="top_back_p2", use_container_width=True, help="Return to Project Overview", on_click=navigate_to, args=("🏠 Front Page (Project Overview)",))
+    with b_nav2:
+        st.markdown('<div class="section-header" style="margin-top:0;">🎛️ Single-Engine Telemetry Diagnostics Console</div>', unsafe_allow_html=True)
 
     if 'sensor_vals' not in st.session_state:
         st.session_state.sensor_vals = {k: v for k, v in PRESETS['healthy'].items() if k != 'label'}
@@ -792,13 +958,22 @@ elif st.session_state.nav_page == "🎛️ Single-Engine Telemetry (Manual)":
     else:
         st.error(f"**{status_title}** — {action_directive}")
 
+    st.markdown("---")
+    b_bot2, _ = st.columns([1.8, 8.2])
+    with b_bot2:
+        st.button("⬅️ Back to Front Page", key="bottom_back_p2", use_container_width=True, help="Return to Project Overview", on_click=navigate_to, args=("🏠 Front Page (Project Overview)",))
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 3: 📂 BATCH FLEET SENSOR ANALYSIS
 # ══════════════════════════════════════════════════════════════════════════════
 elif st.session_state.nav_page == "📂 Batch Fleet Analysis (CSV Upload)":
 
-    st.markdown('<div class="section-header">📂 Fleet Batch Sensor Analytics</div>', unsafe_allow_html=True)
+    b_nav1, b_nav2 = st.columns([1.8, 8.2])
+    with b_nav1:
+        st.button("⬅️ Back to Front Page", key="top_back_p3", use_container_width=True, help="Return to Project Overview", on_click=navigate_to, args=("🏠 Front Page (Project Overview)",))
+    with b_nav2:
+        st.markdown('<div class="section-header" style="margin-top:0;">📂 Fleet Batch Sensor Analytics</div>', unsafe_allow_html=True)
     st.markdown("""
     Upload multi-engine operational telemetry logs (`.csv`) containing the 13 standard C-MAPSS channels.
     The engine will generate fleet degradation curves, failure risk distribution, and prioritized overhaul rankings.
@@ -821,8 +996,17 @@ elif st.session_state.nav_page == "📂 Batch Fleet Analysis (CSV Upload)":
                     rows_payload = X_batch.to_dict(orient='records')
                     api_results  = api_predict_batch(rows_payload, model_type=chosen_model_type)
                     preds = [r['rul'] for r in api_results]
-                    batch_df['Predicted_RUL']     = np.clip(preds, 0, 125)
-                    batch_df['Prognostic_Status']  = [r['status'].split()[0] for r in api_results]
+                    batch_df['Predicted_RUL'] = np.clip(preds, 0, 125)
+                    def _clean_status(s: str) -> str:
+                        su = str(s).upper()
+                        if 'NOMINAL' in su:
+                            return 'NOMINAL'
+                        elif 'ADVISORY' in su or 'MAINTENANCE' in su:
+                            return 'ADVISORY'
+                        elif 'CRITICAL' in su or 'EXHAUSTION' in su:
+                            return 'CRITICAL'
+                        return su
+                    batch_df['Prognostic_Status'] = [_clean_status(r['status']) for r in api_results]
                 else:
                     raise ConnectionError("Backend offline")
             except Exception:
@@ -853,8 +1037,33 @@ elif st.session_state.nav_page == "📂 Batch Fleet Analysis (CSV Upload)":
                     title='Engine RUL Degradation Trajectories Across Cycles',
                     template=chart_template
                 )
-                fig_traj.add_hline(y=30, line_dash='dash', line_color='#ef4444', annotation_text='AOG Critical (<30 cyc)')
-                fig_traj.add_hline(y=80, line_dash='dash', line_color='#f59e0b', annotation_text='Advisory (<80 cyc)')
+                fig_traj.add_hrect(
+                    y0=30, y1=80,
+                    fillcolor="rgba(234, 179, 8, 0.16)",
+                    line_width=1,
+                    line_dash="dot",
+                    line_color="#eab308",
+                    annotation_text="🟡 Maintenance Advisory Zone",
+                    annotation_position="top left"
+                )
+                fig_traj.add_hrect(
+                    y0=0, y1=30,
+                    fillcolor="rgba(239, 68, 68, 0.12)",
+                    line_width=1,
+                    line_dash="dot",
+                    line_color="#ef4444",
+                    annotation_text="🔴 Critical AOG Zone",
+                    annotation_position="top left"
+                )
+                fig_traj.add_hrect(
+                    y0=80, y1=125,
+                    fillcolor="rgba(16, 185, 129, 0.08)",
+                    line_width=1,
+                    line_dash="dot",
+                    line_color="#10b981",
+                    annotation_text="🟢 Nominal Zone",
+                    annotation_position="top left"
+                )
                 fig_traj.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor=plot_bg, font={'color': text_color})
                 st.plotly_chart(fig_traj, use_container_width=True)
 
@@ -865,11 +1074,34 @@ elif st.session_state.nav_page == "📂 Batch Fleet Analysis (CSV Upload)":
                     status_summary, names='Status', values='Count', hole=0.45,
                     title='Fleet Airworthiness Distribution',
                     color='Status',
-                    color_discrete_map={'NOMINAL': '#10b981', 'ADVISORY': '#f59e0b', 'CRITICAL': '#ef4444'},
+                    color_discrete_map={
+                        'NOMINAL': '#10b981',
+                        'ADVISORY': '#eab308',
+                        'MAINTENANCE': '#eab308',
+                        'MAINTENANCE ADVISORY': '#eab308',
+                        'CRITICAL': '#ef4444',
+                    },
                     template=chart_template
                 )
                 fig_donut.update_layout(paper_bgcolor='rgba(0,0,0,0)', font={'color': text_color})
                 st.plotly_chart(fig_donut, use_container_width=True)
+
+            st.markdown('<div class="section-header">📋 Fleet Maintenance Status & Overhaul Rankings</div>', unsafe_allow_html=True)
+            display_cols = [c for c in ['ID', 'Cycle', 'Predicted_RUL', 'Prognostic_Status'] if c in batch_df.columns]
+            fleet_table = batch_df[display_cols].copy()
+            fleet_table['Predicted_RUL'] = fleet_table['Predicted_RUL'].round(1)
+            status_badge_map = {
+                'NOMINAL': '🟢 Nominal',
+                'ADVISORY': '🟡 Maintenance Advisory',
+                'MAINTENANCE': '🟡 Maintenance Advisory',
+                'CRITICAL': '🔴 Critical (AOG)'
+            }
+            fleet_table['Airworthiness_Indication'] = fleet_table['Prognostic_Status'].map(lambda s: status_badge_map.get(s, s))
+            if 'ID' in fleet_table.columns:
+                fleet_display = fleet_table.sort_values(by='Predicted_RUL', ascending=True).drop_duplicates(subset=['ID'], keep='first')
+            else:
+                fleet_display = fleet_table.sort_values(by='Predicted_RUL', ascending=True)
+            st.dataframe(fleet_display, use_container_width=True)
 
             csv_export = batch_df.to_csv(index=False).encode('utf-8')
             st.download_button(
@@ -880,13 +1112,22 @@ elif st.session_state.nav_page == "📂 Batch Fleet Analysis (CSV Upload)":
                 use_container_width=True
             )
 
+    st.markdown("---")
+    b_bot3, _ = st.columns([1.8, 8.2])
+    with b_bot3:
+        st.button("⬅️ Back to Front Page", key="bottom_back_p3", use_container_width=True, help="Return to Project Overview", on_click=navigate_to, args=("🏠 Front Page (Project Overview)",))
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 4: 📊 MODEL BENCHMARKS & COMPARATIVE ANALYTICS
 # ══════════════════════════════════════════════════════════════════════════════
 elif st.session_state.nav_page == "📊 Model Benchmarks & Comparison":
 
-    st.markdown('<div class="section-header">📊 Machine Learning Model Comparative Evaluation</div>', unsafe_allow_html=True)
+    b_nav1, b_nav2 = st.columns([1.8, 8.2])
+    with b_nav1:
+        st.button("⬅️ Back to Front Page", key="top_back_p4", use_container_width=True, help="Return to Project Overview", on_click=navigate_to, args=("🏠 Front Page (Project Overview)",))
+    with b_nav2:
+        st.markdown('<div class="section-header" style="margin-top:0;">📊 Machine Learning Model Comparative Evaluation</div>', unsafe_allow_html=True)
 
     # Metrics from actual evaluation on NASA C-MAPSS FD001 official test set (100 engines)
     benchmark_data = [
@@ -940,3 +1181,8 @@ elif st.session_state.nav_page == "📊 Model Benchmarks & Comparison":
         </ul>
     </div>
     """, unsafe_allow_html=True)
+
+    st.markdown("---")
+    b_bot4, _ = st.columns([1.8, 8.2])
+    with b_bot4:
+        st.button("⬅️ Back to Front Page", key="bottom_back_p4", use_container_width=True, help="Return to Project Overview", on_click=navigate_to, args=("🏠 Front Page (Project Overview)",))
