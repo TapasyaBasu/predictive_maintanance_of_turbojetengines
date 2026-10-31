@@ -189,9 +189,23 @@ html, body, [class*="css"] {{
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 }}
 
-.stDeployButton, #MainMenu, footer {{
+/* Remove Deploy option, Main Menu, and footer completely */
+[data-testid="stAppDeployButton"],
+.stAppDeployButton,
+[data-testid="stDeployButton"],
+.stDeployButton,
+#MainMenu,
+footer,
+[data-testid="stToolbarActions"],
+[data-testid="stToolbarRight"] {{
     display: none !important;
     visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    position: absolute !important;
+    right: -9999px !important;
 }}
 
 /* Ensure toolbar stays visible so expand sidebar button is never hidden */
