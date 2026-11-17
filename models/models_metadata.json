@@ -1,0 +1,318 @@
+{
+  "dataset_info": {
+    "name": "NASA C-MAPSS Turbofan Engine Degradation Simulation",
+    "subsets": [
+      "FD001",
+      "FD002",
+      "FD003",
+      "FD004"
+    ],
+    "features_used": [
+      "Cycle",
+      "SensorMeasure2",
+      "SensorMeasure3",
+      "SensorMeasure4",
+      "SensorMeasure7",
+      "SensorMeasure8",
+      "SensorMeasure11",
+      "SensorMeasure12",
+      "SensorMeasure13",
+      "SensorMeasure15",
+      "SensorMeasure17",
+      "SensorMeasure20",
+      "SensorMeasure21"
+    ],
+    "feature_count": 13,
+    "max_rul_cap": 125.0,
+    "test_benchmark": "FD001 official test set (100 engines at last operational cycle)"
+  },
+  "models": {
+    "linear_regression": {
+      "name": "Linear Regression (Ordinary Least Squares)",
+      "category": "Classical Parametric Baseline",
+      "file_name": "linear_regression.pkl",
+      "features": [
+        "Cycle",
+        "SensorMeasure2",
+        "SensorMeasure3",
+        "SensorMeasure4",
+        "SensorMeasure7",
+        "SensorMeasure8",
+        "SensorMeasure11",
+        "SensorMeasure12",
+        "SensorMeasure13",
+        "SensorMeasure15",
+        "SensorMeasure17",
+        "SensorMeasure20",
+        "SensorMeasure21"
+      ],
+      "intercept": 89.5564,
+      "coefficients": {
+        "Cycle": -17.3114,
+        "SensorMeasure2": -359.9301,
+        "SensorMeasure3": -89.6598,
+        "SensorMeasure4": -36.4204,
+        "SensorMeasure7": 190.0857,
+        "SensorMeasure8": 982.2814,
+        "SensorMeasure11": -98.7815,
+        "SensorMeasure12": 179.5912,
+        "SensorMeasure13": -559.3332,
+        "SensorMeasure15": -99.9356,
+        "SensorMeasure17": -105.9276,
+        "SensorMeasure20": -160.6455,
+        "SensorMeasure21": -183.0985
+      },
+      "metrics": {
+        "val_rmse": 23.13,
+        "val_mae": 16.56,
+        "val_r2": 0.6782,
+        "test_rmse": 22.99,
+        "test_mae": 18.82,
+        "test_r2": 0.6709
+      },
+      "explanation": "Models Remaining Useful Life as a linear combination of normalized sensor signals. Serves as the mathematical baseline to demonstrate the performance gain of non-linear algorithms.",
+      "strengths": [
+        "Extreme interpretability",
+        "Instant sub-millisecond inference",
+        "Closed-form OLS analytical solution"
+      ],
+      "limitations": [
+        "Cannot capture non-linear exponential wear kinetics",
+        "Sensitive to collinear sensor channels",
+        "Higher error in late-stage degradation"
+      ],
+      "hyperparameters": {
+        "fit_intercept": true,
+        "copy_X": true
+      }
+    },
+    "random_forest": {
+      "name": "Random Forest Regressor",
+      "category": "Ensemble Bagging (Bootstrap Aggregation)",
+      "file_name": "random_forest.pkl",
+      "features": [
+        "Cycle",
+        "SensorMeasure2",
+        "SensorMeasure3",
+        "SensorMeasure4",
+        "SensorMeasure7",
+        "SensorMeasure8",
+        "SensorMeasure11",
+        "SensorMeasure12",
+        "SensorMeasure13",
+        "SensorMeasure15",
+        "SensorMeasure17",
+        "SensorMeasure20",
+        "SensorMeasure21"
+      ],
+      "feature_importances": {
+        "Cycle": 0.49,
+        "SensorMeasure2": 0.0245,
+        "SensorMeasure3": 0.0116,
+        "SensorMeasure4": 0.052,
+        "SensorMeasure7": 0.0105,
+        "SensorMeasure8": 0.0123,
+        "SensorMeasure11": 0.1103,
+        "SensorMeasure12": 0.0159,
+        "SensorMeasure13": 0.1323,
+        "SensorMeasure15": 0.1189,
+        "SensorMeasure17": 0.0045,
+        "SensorMeasure20": 0.0072,
+        "SensorMeasure21": 0.0101
+      },
+      "metrics": {
+        "val_rmse": 17.63,
+        "val_mae": 11.58,
+        "val_r2": 0.8131,
+        "test_rmse": 19.34,
+        "test_mae": 14.35,
+        "test_r2": 0.7671
+      },
+      "explanation": "Constructs an ensemble of 100 decorrelated decision trees using bootstrap sampling and random feature subsets. Aggregates predictions to minimize variance and prevent overfitting.",
+      "strengths": [
+        "Robust against sensor outliers",
+        "Models non-linear degradation curves",
+        "Provides direct Gini/MDI feature importance rankings"
+      ],
+      "limitations": [
+        "Cannot extrapolate beyond maximum training cycle ranges",
+        "High disk footprint",
+        "Moderate RAM requirement"
+      ],
+      "hyperparameters": {
+        "n_estimators": 100,
+        "max_depth": 15,
+        "random_state": 42,
+        "n_jobs": -1
+      }
+    },
+    "gradient_boosting": {
+      "name": "Gradient Boosting Regressor (GBDT)",
+      "category": "Ensemble Boosting (Sequential Stage-wise)",
+      "file_name": "gradient_boosting.pkl",
+      "features": [
+        "Cycle",
+        "SensorMeasure2",
+        "SensorMeasure3",
+        "SensorMeasure4",
+        "SensorMeasure7",
+        "SensorMeasure8",
+        "SensorMeasure11",
+        "SensorMeasure12",
+        "SensorMeasure13",
+        "SensorMeasure15",
+        "SensorMeasure17",
+        "SensorMeasure20",
+        "SensorMeasure21"
+      ],
+      "feature_importances": {
+        "Cycle": 0.5332,
+        "SensorMeasure2": 0.0068,
+        "SensorMeasure3": 0.0059,
+        "SensorMeasure4": 0.0633,
+        "SensorMeasure7": 0.0038,
+        "SensorMeasure8": 0.0064,
+        "SensorMeasure11": 0.1061,
+        "SensorMeasure12": 0.0099,
+        "SensorMeasure13": 0.1327,
+        "SensorMeasure15": 0.1165,
+        "SensorMeasure17": 0.0094,
+        "SensorMeasure20": 0.0023,
+        "SensorMeasure21": 0.0037
+      },
+      "metrics": {
+        "val_rmse": 17.94,
+        "val_mae": 12.12,
+        "val_r2": 0.8064,
+        "test_rmse": 18.85,
+        "test_mae": 14.34,
+        "test_r2": 0.7788
+      },
+      "explanation": "Builds shallow decision trees sequentially, where each new tree is fitted to minimize the pseudo-residuals (loss gradient) of the preceding ensemble.",
+      "strengths": [
+        "High precision on non-linear thermodynamic patterns",
+        "Learns complex interactions between temperatures and pressures"
+      ],
+      "limitations": [
+        "Sequential training cannot be easily parallelized",
+        "Prone to overfitting without careful learning rate tuning"
+      ],
+      "hyperparameters": {
+        "n_estimators": 150,
+        "max_depth": 5,
+        "learning_rate": 0.08,
+        "subsample": 0.8,
+        "random_state": 42
+      }
+    },
+    "xgboost": {
+      "name": "XGBoost Regressor (Tuned Production)",
+      "category": "Extreme Gradient Boosted Trees (Regularized)",
+      "file_name": "final_model.pkl",
+      "features": [
+        "Cycle",
+        "SensorMeasure2",
+        "SensorMeasure3",
+        "SensorMeasure4",
+        "SensorMeasure7",
+        "SensorMeasure8",
+        "SensorMeasure11",
+        "SensorMeasure12",
+        "SensorMeasure13",
+        "SensorMeasure15",
+        "SensorMeasure17",
+        "SensorMeasure20",
+        "SensorMeasure21"
+      ],
+      "feature_importances": {
+        "Cycle": 0.30390000343322754,
+        "SensorMeasure2": 0.01600000075995922,
+        "SensorMeasure3": 0.014100000262260437,
+        "SensorMeasure4": 0.09390000253915787,
+        "SensorMeasure7": 0.014499999582767487,
+        "SensorMeasure8": 0.025499999523162842,
+        "SensorMeasure11": 0.15070000290870667,
+        "SensorMeasure12": 0.026499999687075615,
+        "SensorMeasure13": 0.149399995803833,
+        "SensorMeasure15": 0.11129999905824661,
+        "SensorMeasure17": 0.04230000078678131,
+        "SensorMeasure20": 0.028300000354647636,
+        "SensorMeasure21": 0.023600000888109207
+      },
+      "metrics": {
+        "val_rmse": 17.61,
+        "val_mae": 11.59,
+        "val_r2": 0.8135,
+        "test_rmse": 18.91,
+        "test_mae": 14.35,
+        "test_r2": 0.7773
+      },
+      "explanation": "Advanced gradient boosting framework incorporating second-order Taylor expansion gradients, L1/L2 tree shrinkage regularization, and histogram-based split finding.",
+      "strengths": [
+        "Industry gold standard for tabular regression",
+        "Sub-15ms inference latency",
+        "L1/L2 regularization prevents tree overfitting"
+      ],
+      "limitations": [
+        "Treats each flight cycle independently without temporal memory",
+        "Requires parameter tuning for optimal depth"
+      ],
+      "hyperparameters": {
+        "n_estimators": 400,
+        "max_depth": 6,
+        "learning_rate": 0.05,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+        "random_state": 42
+      }
+    },
+    "lstm": {
+      "name": "LSTM Neural Network (PyTorch)",
+      "category": "2-Layer Recurrent Neural Network (Deep Sequence)",
+      "file_name": "lstm_best_model.pth",
+      "features": [
+        "Cycle",
+        "SensorMeasure2",
+        "SensorMeasure3",
+        "SensorMeasure4",
+        "SensorMeasure7",
+        "SensorMeasure8",
+        "SensorMeasure11",
+        "SensorMeasure12",
+        "SensorMeasure13",
+        "SensorMeasure15",
+        "SensorMeasure17",
+        "SensorMeasure20",
+        "SensorMeasure21"
+      ],
+      "metrics": {
+        "val_rmse": 14.1,
+        "val_mae": 10.25,
+        "val_r2": 0.875,
+        "test_rmse": 13.23,
+        "test_mae": 9.45,
+        "test_r2": 0.891
+      },
+      "explanation": "Deep recurrent neural network operating over a sliding time-window of 30 flight cycles. Memory gates (forget, input, output) capture long-term temporal sensor degradation trends.",
+      "strengths": [
+        "Captures multi-cycle temporal degradation trajectories",
+        "Achieves highest accuracy (lowest RMSE: 13.23 cycles)",
+        "Understands historical rate-of-wear"
+      ],
+      "limitations": [
+        "Requires sequential multi-cycle telemetry (30 cycles)",
+        "Higher computational complexity for training and inference"
+      ],
+      "hyperparameters": {
+        "input_dim": 13,
+        "sequence_length": 30,
+        "hidden_dim1": 64,
+        "hidden_dim2": 32,
+        "dropout": 0.2,
+        "dense_layers": "32 -> 16 -> 1",
+        "optimizer": "Adam (lr=0.001)",
+        "epochs": 25
+      }
+    }
+  }
+}

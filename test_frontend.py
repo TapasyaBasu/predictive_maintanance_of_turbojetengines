@@ -56,8 +56,13 @@ mock_form.__enter__ = MagicMock(return_value=mock_form)
 mock_form.__exit__ = MagicMock(return_value=None)
 mock_st.form.return_value = mock_form
 
-mock_st.cache_data = lambda *args, **kwargs: (lambda f: f)
-mock_st.cache_resource = lambda *args, **kwargs: (lambda f: f)
+def mock_cache(*args, **kwargs):
+    if len(args) == 1 and callable(args[0]):
+        return args[0]
+    return lambda f: f
+
+mock_st.cache_data = mock_cache
+mock_st.cache_resource = mock_cache
 mock_st.rerun = MagicMock()
 
 # Mock requests so network doesn't block
@@ -143,12 +148,28 @@ exec(compile(app_code, app_file, 'exec'), {'__file__': os.path.abspath(app_file)
 print("   [PASS] Batch Fleet page (with 2-engine CSV processed) executed cleanly.")
 
 # Test 4: Page 4 (Model Benchmarks & Comparison)
-print("\n[4/4] Executing Page 4: Model Benchmarks & Comparison...")
+print("\n[4/5] Executing Page 4: Model Benchmarks & Comparison...")
 mock_st.session_state['nav_page'] = "📊 Model Benchmarks & Comparison"
 mock_st.radio.return_value = "📊 Model Benchmarks & Comparison"
 exec(compile(app_code, app_file, 'exec'), {'__file__': os.path.abspath(app_file)})
 print("   [PASS] Model Benchmarks Plotly generation & tables executed cleanly.")
 
+# Test 5: Page 5 (Individual Model Demonstrations)
+print("\n[5/5] Executing Individual Model Demonstrations Page...")
+mock_st.session_state['nav_page'] = "🔬 Individual Model Demonstrations"
+choices_list = [
+    "1. 📈 Linear Regression (Baseline Parametric)",
+    "2. 🌲 Random Forest Regressor (Ensemble Bagging)",
+    "3. 🚀 Gradient Boosting Regressor (Stage-wise GBDT)",
+    "4. ⚡ XGBoost Regressor (Tuned Extreme Gradient Boosting)",
+    "5. 🧬 PyTorch LSTM Network (Deep Sequence Neural Net)",
+]
+for m_idx, choice_str in enumerate(choices_list):
+    mock_st.session_state['ind_model_idx'] = m_idx
+    mock_st.radio.return_value = choice_str
+    exec(compile(app_code, app_file, 'exec'), {'__file__': os.path.abspath(app_file)})
+    print(f"   [PASS] Demonstration sub-view for choice {m_idx+1} executed cleanly.")
+
 print("\n" + "=" * 65)
-print("  ALL 4 STREAMLIT PAGES EXECUTED WITH 0 RUNTIME/SYNTAX ERRORS!")
+print("  ALL STREAMLIT PAGES & SUB-VIEWS EXECUTED WITH 0 RUNTIME/SYNTAX ERRORS!")
 print("=" * 65)

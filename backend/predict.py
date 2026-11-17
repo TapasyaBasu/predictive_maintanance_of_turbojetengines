@@ -1,8 +1,9 @@
 """
-predict.py — Standalone prediction logic for XGBoost and PyTorch LSTM
-====================================================================
-Loads the trained XGBoost model and PyTorch LSTM network and exposes
-predict_single() and predict_batch() functions supporting both models.
+predict.py — Standalone prediction logic for Multi-Model Prognostics
+=====================================================================
+Loads trained models (Linear Regression, Random Forest, Gradient Boosting,
+XGBoost, and PyTorch LSTM) and exposes predict_single() and predict_batch()
+functions supporting all architectures independently.
 """
 
 from __future__ import annotations
@@ -10,7 +11,7 @@ from __future__ import annotations
 import json
 import os
 import sys
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 
 import joblib
 import numpy as np
@@ -65,7 +66,7 @@ else:
 
 def load_artifacts(models_dir: str = MODELS_DIR):
     """
-    Load models, scaler, and feature list from disk.
+    Backwards-compatible artifact loader.
     Returns: (xgb_model, scaler, features, lstm_model, lstm_scaler)
     """
     xgb_model = joblib.load(os.path.join(models_dir, "final_model.pkl"))
@@ -97,6 +98,51 @@ def load_artifacts(models_dir: str = MODELS_DIR):
     return xgb_model, scaler, features, lstm_model, lstm_scaler
 
 
+def load_all_models(models_dir: str = MODELS_DIR) -> Dict[str, Any]:
+    """
+    Loads all available model artifacts, scalers, and metadata from disk.
+    Returns a dictionary of loaded model instances and helpers.
+    """
+    xgb_m, sc, feats, lstm_m, lstm_sc = load_artifacts(models_dir)
+
+    models_dict = {
+        "xgboost"          : xgb_m,
+        "lstm"             : lstm_m,
+        "scaler"           : sc,
+        "lstm_scaler"      : lstm_sc,
+        "features"         : feats,
+        "linear_regression": None,
+        "random_forest"    : None,
+        "gradient_boosting": None,
+    }
+
+    # Load Linear Regression
+    lr_path = os.path.join(models_dir, "linear_regression.pkl")
+    if os.path.exists(lr_path):
+        try:
+            models_dict["linear_regression"] = joblib.load(lr_path)
+        except Exception as e:
+            print(f"[predict.py] Could not load Linear Regression: {e}")
+
+    # Load Random Forest
+    rf_path = os.path.join(models_dir, "random_forest.pkl")
+    if os.path.exists(rf_path):
+        try:
+            models_dict["random_forest"] = joblib.load(rf_path)
+        except Exception as e:
+            print(f"[predict.py] Could not load Random Forest: {e}")
+
+    # Load Gradient Boosting
+    gb_path = os.path.join(models_dir, "gradient_boosting.pkl")
+    if os.path.exists(gb_path):
+        try:
+            models_dict["gradient_boosting"] = joblib.load(gb_path)
+        except Exception as e:
+            print(f"[predict.py] Could not load Gradient Boosting: {e}")
+
+    return models_dict
+
+
 # ── Status helper ─────────────────────────────────────────────────────────────
 
 def rul_status(rul: float) -> Tuple[str, str, str]:
@@ -123,6 +169,23 @@ def rul_status(rul: float) -> Tuple[str, str, str]:
 
 # ── Core predict functions ────────────────────────────────────────────────────
 
+def normalize_model_type(model_type: str) -> str:
+    """Normalize model string to standard identifier."""
+    m = model_type.lower().strip()
+    if any(k in m for k in ["xgb", "xgboost"]):
+        return "xgboost"
+    elif any(k in m for k in ["lstm", "torch", "deep", "recurrent"]):
+        return "lstm"
+    elif any(k in m for k in ["linear", "lr", "ols"]):
+        return "linear_regression"
+    elif any(k in m for k in ["forest", "rf", "random"]):
+        return "random_forest"
+    elif any(k in m for k in ["gradient", "gbdt"]) or m == "gb":
+        return "gradient_boosting"
+    else:
+        return "xgboost"
+
+
 def predict_single(
     sensor_data : Dict[str, float],
     model_type  : str = "xgboost",
@@ -132,47 +195,64 @@ def predict_single(
     lstm_model  = None,
     lstm_scaler = None,
     models_dir  : str = MODELS_DIR,
+    extra_models: Optional[Dict[str, Any]] = None,
 ) -> Dict:
     """
-    Predict RUL for a single engine snapshot using either XGBoost or LSTM.
-
-    Args:
-        sensor_data : dict mapping feature name -> value (must include all 13 features).
-        model_type  : 'xgboost' or 'lstm'
-        xgb_model   : pre-loaded XGBoost model (loaded if None).
-        scaler      : pre-loaded scaler (loaded if None).
-        features    : ordered feature list (loaded if None).
-        lstm_model  : pre-loaded PyTorch LSTM model (loaded if None).
-        lstm_scaler : pre-loaded LSTM scaler (loaded if None).
-        models_dir  : path to the models folder.
-
-    Returns:
-        dict with keys: rul, health_pct, status, status_color, action_directive, cycle_age, model_used
+    Predict RUL for a single engine snapshot using any supported model architecture:
+    'linear_regression', 'random_forest', 'gradient_boosting', 'xgboost', or 'lstm'.
     """
-    if xgb_model is None or scaler is None or features is None or (model_type == "lstm" and lstm_model is None):
-        xgb_m, sc, feats, lstm_m, lstm_sc = load_artifacts(models_dir)
-        xgb_model   = xgb_model or xgb_m
-        scaler      = scaler or sc
-        features    = features or feats
-        lstm_model  = lstm_model or lstm_m
-        lstm_scaler = lstm_scaler or lstm_sc
+    target_model = normalize_model_type(model_type)
+
+    # Load artifacts if not passed
+    if extra_models is None:
+        extra_models = load_all_models(models_dir)
+
+    features = features or extra_models["features"]
+    scaler = scaler or extra_models["scaler"]
+    lstm_scaler = lstm_scaler or extra_models["lstm_scaler"]
 
     df = pd.DataFrame([sensor_data])[features]
 
-    norm_type = model_type.lower().strip()
-    if norm_type in ("lstm", "torch", "deep_learning") and lstm_model is not None and TORCH_AVAILABLE:
-        # Scale features using standard scaler
-        active_scaler = lstm_scaler if lstm_scaler is not None else scaler
-        scaled_vals = active_scaler.transform(df)
-        # For a single snapshot, create a sequence of length SEQUENCE_LENGTH (repeating recent state)
+    if target_model == "lstm":
+        active_lstm = lstm_model or extra_models.get("lstm")
+        if active_lstm is None or not TORCH_AVAILABLE:
+            raise RuntimeError("LSTM model artifact (lstm_best_model.pth) is unavailable or PyTorch is not installed.")
+        active_sc = lstm_scaler if lstm_scaler is not None else scaler
+        scaled_vals = active_sc.transform(df)
         seq = np.repeat(scaled_vals, SEQUENCE_LENGTH, axis=0)
-        seq_tensor = torch.tensor(seq, dtype=torch.float32).unsqueeze(0)  # Shape: (1, 30, 13)
+        seq_tensor = torch.tensor(seq, dtype=torch.float32).unsqueeze(0)
         with torch.no_grad():
-            raw = float(lstm_model(seq_tensor).item())
+            raw = float(active_lstm(seq_tensor).item())
         model_name = "LSTM Network (PyTorch)"
-    else:
-        raw = float(xgb_model.predict(df)[0])
-        model_name = "XGBoost Regressor"
+
+    elif target_model == "linear_regression":
+        active_lr = extra_models.get("linear_regression")
+        if active_lr is None:
+            raise FileNotFoundError("Linear Regression artifact (linear_regression.pkl) is not found in models/.")
+        scaled_vals = scaler.transform(df)
+        raw = float(active_lr.predict(scaled_vals)[0])
+        model_name = "Linear Regression (Baseline)"
+
+    elif target_model == "random_forest":
+        active_rf = extra_models.get("random_forest")
+        if active_rf is None:
+            raise FileNotFoundError("Random Forest artifact (random_forest.pkl) is not found in models/.")
+        raw = float(active_rf.predict(df)[0])
+        model_name = "Random Forest Regressor"
+
+    elif target_model == "gradient_boosting":
+        active_gb = extra_models.get("gradient_boosting")
+        if active_gb is None:
+            raise FileNotFoundError("Gradient Boosting artifact (gradient_boosting.pkl) is not found in models/.")
+        raw = float(active_gb.predict(df)[0])
+        model_name = "Gradient Boosting Regressor"
+
+    else:  # default: xgboost
+        active_xgb = xgb_model or extra_models.get("xgboost")
+        if active_xgb is None:
+            raise FileNotFoundError("XGBoost artifact (final_model.pkl) is not found in models/.")
+        raw = float(active_xgb.predict(df)[0])
+        model_name = "XGBoost Regressor (Tuned)"
 
     rul_val = float(np.clip(raw, 0.0, MAX_RUL))
     health  = round((rul_val / MAX_RUL) * 100.0, 2)
@@ -198,35 +278,62 @@ def predict_batch(
     lstm_model  = None,
     lstm_scaler = None,
     models_dir  : str = MODELS_DIR,
+    extra_models: Optional[Dict[str, Any]] = None,
 ) -> List[Dict]:
     """
-    Predict RUL for a list of engine sensor rows using XGBoost or LSTM.
-    Returns a list of result dicts (same schema as predict_single).
+    Predict RUL for a list of engine sensor rows using any supported model architecture.
     """
-    if xgb_model is None or scaler is None or features is None or (model_type == "lstm" and lstm_model is None):
-        xgb_m, sc, feats, lstm_m, lstm_sc = load_artifacts(models_dir)
-        xgb_model   = xgb_model or xgb_m
-        scaler      = scaler or sc
-        features    = features or feats
-        lstm_model  = lstm_model or lstm_m
-        lstm_scaler = lstm_scaler or lstm_sc
+    target_model = normalize_model_type(model_type)
+
+    if extra_models is None:
+        extra_models = load_all_models(models_dir)
+
+    features = features or extra_models["features"]
+    scaler = scaler or extra_models["scaler"]
+    lstm_scaler = lstm_scaler or extra_models["lstm_scaler"]
 
     df = pd.DataFrame(rows)[features]
-    norm_type = model_type.lower().strip()
 
-    if norm_type in ("lstm", "torch", "deep_learning") and lstm_model is not None and TORCH_AVAILABLE:
-        active_scaler = lstm_scaler if lstm_scaler is not None else scaler
-        scaled_vals = active_scaler.transform(df)
-        # Generate sequence batch (each row as sequence of length SEQUENCE_LENGTH)
-        # Shape: (N, 30, 13)
+    if target_model == "lstm":
+        active_lstm = lstm_model or extra_models.get("lstm")
+        if active_lstm is None or not TORCH_AVAILABLE:
+            raise RuntimeError("LSTM model artifact is unavailable.")
+        active_sc = lstm_scaler if lstm_scaler is not None else scaler
+        scaled_vals = active_sc.transform(df)
         seq_batch = np.repeat(scaled_vals[:, np.newaxis, :], SEQUENCE_LENGTH, axis=1)
         seq_tensor = torch.tensor(seq_batch, dtype=torch.float32)
         with torch.no_grad():
-            raws = lstm_model(seq_tensor).numpy()
+            raws = active_lstm(seq_tensor).numpy()
         model_name = "LSTM Network (PyTorch)"
+
+    elif target_model == "linear_regression":
+        active_lr = extra_models.get("linear_regression")
+        if active_lr is None:
+            raise FileNotFoundError("Linear Regression artifact is missing.")
+        scaled_vals = scaler.transform(df)
+        raws = active_lr.predict(scaled_vals)
+        model_name = "Linear Regression (Baseline)"
+
+    elif target_model == "random_forest":
+        active_rf = extra_models.get("random_forest")
+        if active_rf is None:
+            raise FileNotFoundError("Random Forest artifact is missing.")
+        raws = active_rf.predict(df)
+        model_name = "Random Forest Regressor"
+
+    elif target_model == "gradient_boosting":
+        active_gb = extra_models.get("gradient_boosting")
+        if active_gb is None:
+            raise FileNotFoundError("Gradient Boosting artifact is missing.")
+        raws = active_gb.predict(df)
+        model_name = "Gradient Boosting Regressor"
+
     else:
-        raws = xgb_model.predict(df)
-        model_name = "XGBoost Regressor"
+        active_xgb = xgb_model or extra_models.get("xgboost")
+        if active_xgb is None:
+            raise FileNotFoundError("XGBoost artifact is missing.")
+        raws = active_xgb.predict(df)
+        model_name = "XGBoost Regressor (Tuned)"
 
     ruls = np.clip(raws, 0.0, MAX_RUL)
 
@@ -247,7 +354,7 @@ def predict_batch(
     return results
 
 
-# ── CLI convenience ───────────────────────────────────────────────────────────
+# ── Smoke Test CLI ────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     HEALTHY = {
@@ -265,12 +372,15 @@ if __name__ == "__main__":
         "SensorMeasure20": 39.06,
         "SensorMeasure21": 23.419,
     }
-    print("\n=== Smoke Test: XGBoost ===")
-    res_xgb = predict_single(HEALTHY, model_type="xgboost")
-    for k, v in res_xgb.items():
-        print(f"  {k:20s}: {v}")
 
-    print("\n=== Smoke Test: LSTM ===")
-    res_lstm = predict_single(HEALTHY, model_type="lstm")
-    for k, v in res_lstm.items():
-        print(f"  {k:20s}: {v}")
+    models_to_test = ["linear_regression", "random_forest", "gradient_boosting", "xgboost", "lstm"]
+    print("=" * 60)
+    print("  SMOKE TESTING ALL INDEPENDENT INFERENCE PIPELINES")
+    print("=" * 60)
+    for m in models_to_test:
+        try:
+            res = predict_single(HEALTHY, model_type=m)
+            print(f"[{m.upper():<18}] -> RUL: {res['rul']:>6.2f} cyc | Health: {res['health_pct']:>5.1f}% | Model: {res['model_used']}")
+        except Exception as e:
+            print(f"[{m.upper():<18}] -> FAILED: {e}")
+    print("=" * 60)

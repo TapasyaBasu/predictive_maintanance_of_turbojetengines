@@ -2,13 +2,18 @@
 MaintAI — FastAPI Backend
 =========================
 REST API for the NASA Turbofan Engine RUL (Remaining Useful Life) Predictor.
-Supports both XGBoost Regressor and PyTorch LSTM Deep Learning Models.
+Supports Multi-Model Architectures:
+1. Linear Regression (Baseline)
+2. Random Forest Regressor
+3. Gradient Boosting Regressor
+4. XGBoost Regressor (Tuned Production)
+5. PyTorch LSTM Deep Recurrent Neural Network
 
 Endpoints:
   GET  /              -> service info
-  GET  /health        -> model load status
-  POST /predict       -> single-engine prediction (query param ?model=xgboost|lstm)
-  POST /predict/batch -> batch fleet prediction (query param ?model=xgboost|lstm)
+  GET  /health        -> model load status & available architectures
+  POST /predict       -> single-engine prediction (query param ?model=xgboost|lstm|linear_regression|random_forest|gradient_boosting)
+  POST /predict/batch -> batch fleet prediction (query param ?model=xgboost|lstm|linear_regression|random_forest|gradient_boosting)
   GET  /features      -> required feature list
   GET  /model/info    -> model metadata and comparative benchmarks
   GET  /landing       -> serves standalone HTML landing page
@@ -32,7 +37,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 import joblib
 import numpy as np
@@ -51,50 +56,30 @@ except ImportError:
     TORCH_AVAILABLE = False
 
 
-# ── PyTorch LSTM Architecture ──────────────────────────────────────────────────
-
-if TORCH_AVAILABLE:
-    class TurbofanLSTM(nn.Module):
-        """
-        2-Layer Recurrent Neural Network for RUL Prediction:
-        Input: (batch_size, sequence_length, num_features)
-        LSTM Layer 1: 64 hidden units, dropout 0.2
-        LSTM Layer 2: 32 hidden units
-        Dense Layers: 32 -> 16 -> 1 (Predicted RUL)
-        """
-        def __init__(self, input_dim=13, hidden_dim1=64, hidden_dim2=32, dropout=0.2):
-            super().__init__()
-            self.lstm1 = nn.LSTM(input_dim, hidden_dim1, batch_first=True)
-            self.dropout1 = nn.Dropout(dropout)
-            self.lstm2 = nn.LSTM(hidden_dim1, hidden_dim2, batch_first=True)
-            self.fc1 = nn.Linear(hidden_dim2, 16)
-            self.relu = nn.ReLU()
-            self.fc2 = nn.Linear(16, 1)
-
-        def forward(self, x):
-            out, _ = self.lstm1(x)
-            out = self.dropout1(out)
-            out, _ = self.lstm2(out)
-            out = out[:, -1, :]  # Last time step
-            out = self.relu(self.fc1(out))
-            return self.fc2(out).squeeze(-1)
-else:
-    class TurbofanLSTM:  # type: ignore
-        pass
-
-
-# ── Paths ─────────────────────────────────────────────────────────────────────
+# ── Import prediction engine ──────────────────────────────────────────────────
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 MODELS_DIR = os.path.join(BASE_DIR, '..', 'models')
+
+from predict import (
+    load_all_models,
+    predict_single as core_predict_single,
+    predict_batch as core_predict_batch,
+    rul_status,
+    normalize_model_type,
+    MAX_RUL,
+    SEQUENCE_LENGTH,
+    TurbofanLSTM,
+)
+
 
 # ── App initialisation ────────────────────────────────────────────────────────
 app = FastAPI(
     title       = "MaintAI — Turbofan Engine RUL API",
     description = (
-        "Predicts the Remaining Useful Life (RUL) of NASA CMAPSS turbofan engines "
-        "using tuned XGBoost and PyTorch LSTM models. Supports single and batch inference."
+        "Predicts Remaining Useful Life (RUL) of NASA C-MAPSS turbofan engines "
+        "supporting Linear Regression, Random Forest, Gradient Boosting, XGBoost, and PyTorch LSTM."
     ),
-    version     = "2.0.0",
+    version     = "2.1.0",
     docs_url    = "/docs",
     redoc_url   = "/redoc",
 )
@@ -109,49 +94,28 @@ app.add_middleware(
 )
 
 # ── Model state (loaded at startup) ──────────────────────────────────────────
-_xgb_model     = None
-_lstm_model    = None
-_scaler        = None
-_lstm_scaler   = None
-_features: list = []
+_models_dict   : Dict[str, Any] = {}
 _model_loaded  = False
 _lstm_loaded   = False
+_features      : list = []
 _load_error    = ""
 _load_time_ms  = 0.0
-
-MAX_RUL         = 125.0   # engine life ceiling used during training
-SEQUENCE_LENGTH = 30      # time-window for LSTM
 
 
 @app.on_event("startup")
 def load_model_on_startup() -> None:
-    """Load model artifacts once when the server starts."""
-    global _xgb_model, _lstm_model, _scaler, _lstm_scaler, _features, _model_loaded, _lstm_loaded, _load_error, _load_time_ms
+    """Load all model artifacts once when the server starts."""
+    global _models_dict, _model_loaded, _lstm_loaded, _features, _load_error, _load_time_ms
     t0 = time.perf_counter()
     try:
-        # Load XGBoost model & Scaler
-        _xgb_model = joblib.load(os.path.join(MODELS_DIR, "final_model.pkl"))
-        _scaler    = joblib.load(os.path.join(MODELS_DIR, "scaler.pkl"))
-        with open(os.path.join(MODELS_DIR, "feature_list.json")) as fh:
-            _features = json.load(fh)
-        _model_loaded = True
+        _models_dict = load_all_models(MODELS_DIR)
+        _features    = _models_dict.get("features", [])
+        _model_loaded = _models_dict.get("xgboost") is not None
+        _lstm_loaded  = _models_dict.get("lstm") is not None
 
-        # Load PyTorch LSTM model & dedicated scaler
-        if TORCH_AVAILABLE:
-            lstm_path = os.path.join(MODELS_DIR, "lstm_best_model.pth")
-            if os.path.exists(lstm_path):
-                lstm = TurbofanLSTM(input_dim=len(_features))
-                lstm.load_state_dict(torch.load(lstm_path, map_location=torch.device('cpu')))
-                lstm.eval()
-                _lstm_model = lstm
-                _lstm_loaded = True
-            
-            lstm_sc_path = os.path.join(MODELS_DIR, "lstm_scaler.pkl")
-            if os.path.exists(lstm_sc_path):
-                _lstm_scaler = joblib.load(lstm_sc_path)
-
+        loaded_names = [k for k, v in _models_dict.items() if v is not None and k not in ("scaler", "lstm_scaler", "features")]
         _load_time_ms = round((time.perf_counter() - t0) * 1000, 2)
-        print(f"[MaintAI] [OK] Models loaded in {_load_time_ms} ms: XGBoost={'Loaded' if _model_loaded else 'Failed'}, LSTM={'Loaded' if _lstm_loaded else 'Unavailable'}")
+        print(f"[MaintAI] [OK] Models loaded in {_load_time_ms} ms: {', '.join(loaded_names)}")
     except Exception as exc:
         _load_error   = str(exc)
         _model_loaded = False
@@ -226,13 +190,13 @@ class BatchPredictionResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    status        : str
-    model_loaded  : bool
-    lstm_loaded   : bool
+    status          : str
+    model_loaded    : bool
+    lstm_loaded     : bool
     models_available: List[str]
-    feature_count : int
-    load_time_ms  : float
-    error         : Optional[str]
+    feature_count   : int
+    load_time_ms    : float
+    error           : Optional[str]
 
 
 class ModelInfoResponse(BaseModel):
@@ -245,62 +209,7 @@ class ModelInfoResponse(BaseModel):
     status_definitions: dict
 
 
-# ── Helper utilities ──────────────────────────────────────────────────────────
-
-def rul_status(rul: float):
-    """Return (status_text, color, action_directive) for a RUL value."""
-    if rul > 80:
-        return (
-            "NOMINAL OPERATION",
-            "green",
-            "Standard routine monitoring; flight dispatch permitted with no restrictions.",
-        )
-    elif rul > 30:
-        return (
-            "MAINTENANCE ADVISORY",
-            "amber",
-            "Subsystem wear detected. Schedule non-destructive inspection (NDI) within 15–20 cycles.",
-        )
-    else:
-        return (
-            "CRITICAL EXHAUSTION (AOG)",
-            "red",
-            "Aircraft On Ground protocol. Immediate overhaul / engine change required before next mission.",
-        )
-
-
-def _predict_single_core(sensor: SensorInput, model_type: str = "xgboost") -> PredictionResponse:
-    """Run inference on a single sensor snapshot using chosen model."""
-    row = sensor.model_dump()
-    df  = pd.DataFrame([row])[_features]
-    norm_type = model_type.lower().strip()
-
-    if norm_type in ("lstm", "torch", "deep_learning") and _lstm_loaded and _lstm_model is not None:
-        active_scaler = _lstm_scaler if _lstm_scaler is not None else _scaler
-        scaled_vals = active_scaler.transform(df)
-        seq = np.repeat(scaled_vals, SEQUENCE_LENGTH, axis=0)
-        seq_tensor = torch.tensor(seq, dtype=torch.float32).unsqueeze(0)
-        with torch.no_grad():
-            raw_rul = float(_lstm_model(seq_tensor).item())
-        model_name = "LSTM Network (PyTorch)"
-    else:
-        raw_rul    = float(_xgb_model.predict(df)[0])
-        model_name = "XGBoost Regressor"
-
-    rul_val  = float(np.clip(raw_rul, 0.0, MAX_RUL))
-    health   = round((rul_val / MAX_RUL) * 100.0, 2)
-    status_txt, color, action = rul_status(rul_val)
-
-    return PredictionResponse(
-        rul              = round(rul_val, 2),
-        health_pct       = health,
-        status           = status_txt,
-        status_color     = color,
-        action_directive = action,
-        cycle_age        = sensor.Cycle,
-        model_used       = model_name,
-    )
-
+# ── Heuristic fallback ────────────────────────────────────────────────────────
 
 def _fallback_prediction(sensor: SensorInput, model_type: str = "xgboost") -> PredictionResponse:
     """Simple heuristic prediction when the models are not loaded."""
@@ -326,9 +235,15 @@ def root():
     return {
         "status"          : "online",
         "service"         : "MaintAI — Turbofan Engine RUL API",
-        "models_supported": ["xgboost", "lstm"],
+        "models_supported": [
+            "xgboost",
+            "lstm",
+            "linear_regression",
+            "random_forest",
+            "gradient_boosting",
+        ],
         "default_model"   : "xgboost",
-        "version"         : "2.0.0",
+        "version"         : "2.1.0",
         "docs"            : "/docs",
         "landing"         : "/landing",
     }
@@ -346,14 +261,13 @@ def landing_page():
 @app.get("/health", response_model=HealthResponse, summary="Model health status")
 def health():
     """Returns the current model load status, feature count, and models available."""
-    models_avail = []
-    if _model_loaded:
-        models_avail.append("xgboost")
-    if _lstm_loaded:
-        models_avail.append("lstm")
+    models_avail = [
+        k for k in ["xgboost", "lstm", "linear_regression", "random_forest", "gradient_boosting"]
+        if _models_dict.get(k) is not None
+    ]
 
     return HealthResponse(
-        status           = "ok" if _model_loaded else "degraded",
+        status           = "ok" if len(models_avail) > 0 else "degraded",
         model_loaded     = _model_loaded,
         lstm_loaded      = _lstm_loaded,
         models_available = models_avail,
@@ -375,36 +289,71 @@ def get_features():
 
 @app.get("/model/info", response_model=ModelInfoResponse, summary="Model metadata")
 def model_info():
-    """Returns metadata and benchmarks for both XGBoost and LSTM models."""
-    models_avail = ["xgboost"]
-    if _lstm_loaded:
-        models_avail.append("lstm")
+    """Returns metadata and benchmarks for all supported models."""
+    models_avail = [
+        k for k in ["xgboost", "lstm", "linear_regression", "random_forest", "gradient_boosting"]
+        if _models_dict.get(k) is not None
+    ]
+
+    # Load from models_metadata.json if available
+    meta_json_path = os.path.join(MODELS_DIR, "models_metadata.json")
+    primary_models = {}
+    if os.path.exists(meta_json_path):
+        try:
+            with open(meta_json_path) as f:
+                meta = json.load(f)
+            primary_models = meta.get("models", {})
+            for m_k, m_v in primary_models.items():
+                if isinstance(m_v, dict) and "metrics" in m_v:
+                    for met_k, met_v in m_v["metrics"].items():
+                        m_v[met_k] = met_v
+        except Exception:
+            pass
+
+    if not primary_models:
+        primary_models = {
+            "linear_regression": {
+                "name"     : "Linear Regression (Baseline)",
+                "category" : "Classical Parametric Baseline",
+                "test_rmse": 22.99,
+                "test_mae" : 18.82,
+                "test_r2"  : 0.6709,
+            },
+            "random_forest": {
+                "name"     : "Random Forest Regressor",
+                "category" : "Ensemble Bagging",
+                "test_rmse": 19.34,
+                "test_mae" : 14.35,
+                "test_r2"  : 0.7671,
+            },
+            "gradient_boosting": {
+                "name"     : "Gradient Boosting Regressor",
+                "category" : "Ensemble Boosting",
+                "test_rmse": 18.85,
+                "test_mae" : 14.34,
+                "test_r2"  : 0.7788,
+            },
+            "xgboost": {
+                "name"     : "XGBoost Regressor (Tuned Production)",
+                "category" : "Gradient Boosted Trees",
+                "test_rmse": 18.91,
+                "test_mae" : 14.35,
+                "test_r2"  : 0.7773,
+            },
+            "lstm": {
+                "name"     : "LSTM Neural Network (PyTorch Deep Learning)",
+                "category" : "2-Layer Sequential Recurrent Neural Network",
+                "test_rmse": 13.23,
+                "test_mae" : 9.45,
+                "test_r2"  : 0.8910,
+            }
+        }
 
     return ModelInfoResponse(
         features          = _features,
         feature_count     = len(_features),
         models_available  = models_avail,
-        primary_models    = {
-            "xgboost": {
-                "name"       : "XGBoost Regressor (Production Baseline)",
-                "type"       : "Gradient Boosted Decision Trees",
-                "test_rmse"  : 18.91,
-                "test_mae"   : 14.35,
-                "test_r2"    : 0.7773,
-                "latency_ms" : "< 15 ms",
-                "eval_set"   : "NASA C-MAPSS FD001 official test set (100 engines)",
-            },
-            "lstm": {
-                "name"       : "LSTM Neural Network (PyTorch Deep Learning)",
-                "type"       : "2-Layer Sequential Recurrent Neural Network",
-                "test_rmse"  : 13.23,
-                "test_mae"   : 9.45,
-                "test_r2"    : 0.8910,
-                "window_size": 30,
-                "latency_ms" : "~25 ms",
-                "eval_set"   : "NASA C-MAPSS FD001 official test set (100 engines)",
-            }
-        },
+        primary_models    = primary_models,
         max_rul_ceiling   = MAX_RUL,
         thresholds        = {
             "NOMINAL"  : {"min": 80,  "max": MAX_RUL, "description": "Engine operating within normal parameters"},
@@ -427,21 +376,22 @@ def model_info():
 )
 def predict(
     sensor: SensorInput,
-    model: str = Query("xgboost", description="Model architecture to use: 'xgboost' or 'lstm'")
+    model: str = Query("xgboost", description="Model architecture: 'xgboost', 'lstm', 'linear_regression', 'random_forest', 'gradient_boosting'")
 ):
     """
     Accepts 13 sensor readings for a single engine snapshot and returns
-    the predicted Remaining Useful Life (RUL) using either XGBoost or LSTM.
+    the predicted Remaining Useful Life (RUL) using the selected model.
     """
-    if not _model_loaded:
+    if not _models_dict or all(v is None for k, v in _models_dict.items() if k not in ("scaler", "lstm_scaler", "features")):
         return _fallback_prediction(sensor, model_type=model)
 
     try:
-        return _predict_single_core(sensor, model_type=model)
+        res = core_predict_single(sensor.model_dump(), model_type=model, extra_models=_models_dict)
+        return PredictionResponse(**res)
     except Exception as exc:
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail      = f"Prediction failed: {exc}",
+            detail      = f"Prediction failed with model '{model}': {exc}",
         )
 
 
@@ -453,13 +403,13 @@ def predict(
 )
 def predict_batch(
     request: BatchPredictionRequest,
-    model: str = Query("xgboost", description="Model architecture to use: 'xgboost' or 'lstm'")
+    model: str = Query("xgboost", description="Model architecture: 'xgboost', 'lstm', 'linear_regression', 'random_forest', 'gradient_boosting'")
 ):
     """
     Accepts a list of engine sensor snapshots and returns a prediction for each,
-    plus fleet-level aggregates using either XGBoost or LSTM.
+    plus fleet-level aggregates using the selected model.
     """
-    MAX_BATCH = 5_000
+    MAX_BATCH = 10_000
     if len(request.readings) > MAX_BATCH:
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -472,58 +422,22 @@ def predict_batch(
             detail      = "readings list must contain at least one entry.",
         )
 
-    norm_type = model.lower().strip()
     try:
-        if _model_loaded:
-            rows = [r.model_dump() for r in request.readings]
-            df   = pd.DataFrame(rows)[_features]
+        rows_payload = [r.model_dump() for r in request.readings]
+        results = core_predict_batch(rows_payload, model_type=model, extra_models=_models_dict)
 
-            if norm_type in ("lstm", "torch", "deep_learning") and _lstm_loaded and _lstm_model is not None:
-                active_scaler = _lstm_scaler if _lstm_scaler is not None else _scaler
-                scaled_vals = active_scaler.transform(df)
-                seq_batch   = np.repeat(scaled_vals[:, np.newaxis, :], SEQUENCE_LENGTH, axis=1)
-                seq_tensor  = torch.tensor(seq_batch, dtype=torch.float32)
-                with torch.no_grad():
-                    raw_ruls = _lstm_model(seq_tensor).numpy()
-                model_name = "LSTM Network (PyTorch)"
-            else:
-                raw_ruls   = _xgb_model.predict(df)
-                model_name = "XGBoost Regressor"
-
-            ruls = np.clip(raw_ruls, 0.0, MAX_RUL).tolist()
-        else:
-            ruls = [max(0.0, 125.0 - s.Cycle * 0.65) for s in request.readings]
-            model_name = f"Heuristic Baseline ({norm_type})"
-
-        predictions = []
-        for sensor, rul_val in zip(request.readings, ruls):
-            rul_val  = float(rul_val)
-            health   = round((rul_val / MAX_RUL) * 100.0, 2)
-            status_txt, color, action = rul_status(rul_val)
-            if not _model_loaded:
-                action += " [HEURISTIC MODE — model unavailable]"
-            predictions.append(
-                PredictionResponse(
-                    rul              = round(rul_val, 2),
-                    health_pct       = health,
-                    status           = status_txt,
-                    status_color     = color,
-                    action_directive = action,
-                    cycle_age        = sensor.Cycle,
-                    model_used       = model_name,
-                )
-            )
-
-        rul_values = [p.rul for p in predictions]
-        critical   = sum(1 for p in predictions if p.status_color == "red")
+        pred_objs = [PredictionResponse(**r) for r in results]
+        rul_values = [p.rul for p in pred_objs]
+        critical   = sum(1 for p in pred_objs if p.status_color == "red")
+        active_model_name = pred_objs[0].model_used if pred_objs else model
 
         return BatchPredictionResponse(
-            count          = len(predictions),
-            predictions    = predictions,
+            count          = len(pred_objs),
+            predictions    = pred_objs,
             fleet_avg_rul  = round(float(np.mean(rul_values)), 2),
             fleet_min_rul  = round(float(np.min(rul_values)), 2),
             critical_count = critical,
-            model_used     = model_name,
+            model_used     = active_model_name,
         )
 
     except HTTPException:
@@ -531,5 +445,5 @@ def predict_batch(
     except Exception as exc:
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail      = f"Batch prediction failed: {exc}",
+            detail      = f"Batch prediction failed with model '{model}': {exc}",
         )

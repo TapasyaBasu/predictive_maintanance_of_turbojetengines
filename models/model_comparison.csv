@@ -1,5 +1,6 @@
-Model,Test RMSE,Test MAE,Test R2,Type
-Linear Regression,22.19,17.37,0.6935,Baseline Classical
-Random Forest,19.76,14.95,0.7568,Ensemble Bagging
-XGBoost (Tuned),18.91,14.35,0.7773,Gradient Boosted Trees
-LSTM Network (PyTorch),13.23,9.45,0.891,Sequential Recurrent DL
+Model,Architecture,Val_RMSE,Val_MAE,Val_R2,Test_RMSE,Test_MAE,Test_R2
+Linear Regression,Classical Baseline (Parametric),23.13,16.56,0.6782,22.99,18.82,0.6709
+Random Forest,Ensemble Bagging (Decision Trees),17.63,11.58,0.8131,19.34,14.35,0.7671
+Gradient Boosting,Ensemble Boosting (Stage-wise GBDT),17.94,12.12,0.8064,18.85,14.34,0.7788
+XGBoost (Tuned),Extreme Gradient Boosted Trees (Regularized),17.61,11.59,0.8135,18.91,14.35,0.7773
+LSTM Network,2-Layer Recurrent Neural Net (Deep Sequence),14.1,10.25,0.875,13.23,9.45,0.891

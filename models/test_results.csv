@@ -1,3 +1,6 @@
 Model,Type,Engines,RMSE,MAE,R2
-XGBoost Regressor (Final ML),Gradient Boosted Trees,100,18.91,14.35,0.7773
-LSTM Network (PyTorch Deep Learning),2-Layer Sequential Recurrent DL,100,13.23,9.45,0.891
+Linear Regression,Classical Baseline (Parametric),100,22.99,18.82,0.6709
+Random Forest,Ensemble Bagging (Decision Trees),100,19.34,14.35,0.7671
+Gradient Boosting,Ensemble Boosting (Stage-wise GBDT),100,18.85,14.34,0.7788
+XGBoost (Tuned),Extreme Gradient Boosted Trees (Production),100,18.91,14.35,0.7773
+LSTM Network (PyTorch),2-Layer Sequential Recurrent DL,100,13.23,9.45,0.891

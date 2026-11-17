@@ -16,6 +16,26 @@ import plotly.express as px
 import requests
 import json
 import os
+import sys
+
+BASE_APP_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(BASE_APP_DIR, '..', '..'))
+if os.path.join(PROJECT_ROOT, 'backend') not in sys.path:
+    sys.path.insert(0, os.path.join(PROJECT_ROOT, 'backend'))
+if BASE_APP_DIR not in sys.path:
+    sys.path.insert(0, BASE_APP_DIR)
+
+try:
+    from predict import predict_single as local_predict_single, predict_batch as local_predict_batch
+    LOCAL_PREDICTOR_AVAILABLE = True
+except Exception:
+    LOCAL_PREDICTOR_AVAILABLE = False
+
+try:
+    from individual_models_demo import render_individual_models_demo
+    DEMO_MODULE_AVAILABLE = True
+except Exception as e:
+    DEMO_MODULE_AVAILABLE = False
 
 BACKEND_URL = "http://localhost:8000"
 
@@ -437,10 +457,25 @@ backend_online, backend_health = check_backend_health()
 # ─── Navigation Options ───────────────────────────────────────────────────────
 NAV_PAGES = [
     "🏠 Front Page (Project Overview)",
+    "🔬 Individual Model Demonstrations",
     "🎛️ Single-Engine Telemetry (Manual)",
     "📂 Batch Fleet Analysis (CSV Upload)",
     "📊 Model Benchmarks & Comparison",
 ]
+
+def get_model_code(model_str: str) -> str:
+    m = model_str.lower().strip()
+    if any(k in m for k in ["xgb", "xgboost"]):
+        return "xgboost"
+    elif any(k in m for k in ["lstm", "torch", "deep", "recurrent"]):
+        return "lstm"
+    elif any(k in m for k in ["linear", "lr", "ols"]):
+        return "linear_regression"
+    elif any(k in m for k in ["forest", "rf", "random"]):
+        return "random_forest"
+    elif any(k in m for k in ["gradient", "gbdt"]) or m == "gb":
+        return "gradient_boosting"
+    return "xgboost"
 
 with st.sidebar:
     if st.session_state.nav_page != "🏠 Front Page (Project Overview)":
@@ -469,12 +504,15 @@ with st.sidebar:
         "Inference Architecture",
         [
             "⚡ XGBoost Regressor (Tree Ensemble)",
-            "🧬 PyTorch LSTM (Deep Recurrent Neural Net)"
+            "🧬 PyTorch LSTM (Deep Recurrent Neural Net)",
+            "📈 Linear Regression (Parametric Baseline)",
+            "🌲 Random Forest Regressor (Ensemble Bagging)",
+            "🚀 Gradient Boosting Regressor (Stage-wise GBDT)"
         ],
         index=0,
         key="global_model_choice"
     )
-    chosen_model_type = "lstm" if "lstm" in selected_model_option.lower() else "xgboost"
+    chosen_model_type = get_model_code(selected_model_option)
 
     st.markdown("---")
 
@@ -574,31 +612,76 @@ def rul_status_local(rul):
         return 'CRITICAL EXHAUSTION (AOG)', 'red', '🔴', 'Aircraft On Ground protocol. Immediate overhaul / engine change required before next mission.'
 
 def api_predict_single(sensor_data: dict, model_type: str = "xgboost"):
-    m_param = "lstm" if "lstm" in model_type.lower() else "xgboost"
-    resp = requests.post(
-        f"{BACKEND_URL}/predict",
-        params={"model": m_param},
-        json={k: (int(v) if k == 'Cycle' else float(v)) for k, v in sensor_data.items()},
-        timeout=8,
-    )
-    resp.raise_for_status()
-    d = resp.json()
-    status_map = {'green': ('🟢', 'green'), 'amber': ('🟡', 'amber'), 'red': ('🔴', 'red')}
-    icon, theme = status_map.get(d['status_color'], ('⚪', 'blue'))
-    model_name = d.get('model_used', 'XGBoost Regressor' if m_param == 'xgboost' else 'LSTM Network (PyTorch)')
-    return d['rul'], d['status'], theme, icon, d['action_directive'], d['health_pct'], model_name
+    m_code = get_model_code(model_type)
+    if backend_online:
+        try:
+            resp = requests.post(
+                f"{BACKEND_URL}/predict",
+                params={"model": m_code},
+                json={k: (int(v) if k == 'Cycle' else float(v)) for k, v in sensor_data.items()},
+                timeout=8,
+            )
+            if resp.status_code == 200:
+                d = resp.json()
+                status_map = {'green': ('🟢', 'green'), 'amber': ('🟡', 'amber'), 'red': ('🔴', 'red')}
+                icon, theme = status_map.get(d['status_color'], ('⚪', 'blue'))
+                model_name = d.get('model_used', m_code.replace('_', ' ').title())
+                return d['rul'], d['status'], theme, icon, d['action_directive'], d['health_pct'], model_name
+        except Exception:
+            pass
+
+    # Local ML model inference fallback (never fabricates dummy values if artifacts exist)
+    if LOCAL_PREDICTOR_AVAILABLE:
+        try:
+            res = local_predict_single(sensor_data, model_type=m_code)
+            status_map = {'green': ('🟢', 'green'), 'amber': ('🟡', 'amber'), 'red': ('🔴', 'red')}
+            icon, theme = status_map.get(res['status_color'], ('⚪', 'blue'))
+            return res['rul'], res['status'], theme, icon, res['action_directive'], res['health_pct'], res['model_used']
+        except Exception:
+            pass
+
+    # Heuristic fallback if models cannot be evaluated
+    cycle_cnt = sensor_data.get('Cycle', 50)
+    rul_val = max(0.0, 125.0 - cycle_cnt * 0.65)
+    st_title, st_theme, st_icon, action = rul_status_local(rul_val)
+    return rul_val, st_title, st_theme, st_icon, action + " [HEURISTIC MODE]", (rul_val / 125.0) * 100.0, f"Heuristic ({m_code})"
 
 def api_predict_batch(rows: list, model_type: str = "xgboost"):
-    m_param = "lstm" if "lstm" in model_type.lower() else "xgboost"
-    payload = [{k: (int(v) if k == 'Cycle' else float(v)) for k, v in row.items()} for row in rows]
-    resp = requests.post(
-        f"{BACKEND_URL}/predict/batch",
-        params={"model": m_param},
-        json={"readings": payload},
-        timeout=45
-    )
-    resp.raise_for_status()
-    return resp.json()["predictions"]
+    m_code = get_model_code(model_type)
+    if backend_online:
+        try:
+            payload = [{k: (int(v) if k == 'Cycle' else float(v)) for k, v in row.items()} for row in rows]
+            resp = requests.post(
+                f"{BACKEND_URL}/predict/batch",
+                params={"model": m_code},
+                json={"readings": payload},
+                timeout=45
+            )
+            if resp.status_code == 200:
+                return resp.json()["predictions"]
+        except Exception:
+            pass
+
+    if LOCAL_PREDICTOR_AVAILABLE:
+        try:
+            return local_predict_batch(rows, model_type=m_code)
+        except Exception:
+            pass
+
+    # Heuristic batch fallback
+    res = []
+    for r in rows:
+        c = r.get('Cycle', 50)
+        rul_val = max(0.0, 125.0 - c * 0.65)
+        st_title, st_theme, st_icon, action = rul_status_local(rul_val)
+        res.append({
+            "rul": rul_val,
+            "status": st_title,
+            "status_color": st_theme,
+            "action_directive": action,
+            "model_used": f"Heuristic ({m_code})"
+        })
+    return res
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -622,11 +705,19 @@ if st.session_state.nav_page == "🏠 Front Page (Project Overview)":
     """, unsafe_allow_html=True)
 
     # Call to Action Buttons
-    cta1, cta2, cta3, cta4 = st.columns(4)
+    cta0, cta1, cta2, cta3, cta4 = st.columns(5)
+    with cta0:
+        st.button(
+            "🔬 Individual Model Demos",
+            type="primary",
+            use_container_width=True,
+            on_click=navigate_to,
+            args=("🔬 Individual Model Demonstrations",),
+            key="cta_btn_ind_demo"
+        )
     with cta1:
         st.button(
-            "🚀 Launch Live Diagnostics Console",
-            type="primary",
+            "🚀 Live Diagnostics Console",
             use_container_width=True,
             on_click=navigate_to,
             args=("🎛️ Single-Engine Telemetry (Manual)",),
@@ -650,7 +741,7 @@ if st.session_state.nav_page == "🏠 Front Page (Project Overview)":
         )
     with cta4:
         st.markdown(
-            f'<a href="http://localhost:8000/landing" target="_blank" style="display:block; text-align:center; padding:0.5rem; background:#0284c7; color:#fff; border-radius:8px; font-weight:600; text-decoration:none;">🌐 Standalone Web Landing ↗</a>',
+            f'<a href="http://localhost:8000/landing" target="_blank" style="display:block; text-align:center; padding:0.5rem; background:#0284c7; color:#fff; border-radius:8px; font-weight:600; text-decoration:none;">🌐 Web Landing ↗</a>',
             unsafe_allow_html=True
         )
 
@@ -757,6 +848,31 @@ if st.session_state.nav_page == "🏠 Front Page (Project Overview)":
             </ul>
         </div>
         """, unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE: 🔬 INDIVIDUAL MODEL DEMONSTRATIONS (COLLEGE VIVA / PROJECT DEMO)
+# ══════════════════════════════════════════════════════════════════════════════
+elif st.session_state.nav_page == "🔬 Individual Model Demonstrations":
+    if DEMO_MODULE_AVAILABLE:
+        render_individual_models_demo(
+            dark_mode=dark_mode,
+            chart_template=chart_template,
+            plot_bg=plot_bg,
+            text_color=text_color,
+            gauge_bg=gauge_bg,
+            gauge_border=gauge_border,
+            gauge_tick=gauge_tick,
+            gauge_font_color=gauge_font_color,
+            backend_online=backend_online,
+            api_predict_func=api_predict_single,
+            sensor_meta=SENSOR_META,
+            features_list=FEATURES,
+            presets=PRESETS,
+            navigate_to_func=navigate_to,
+        )
+    else:
+        st.error("❌ Individual Model Demonstrations module could not be loaded.")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1144,13 +1260,37 @@ elif st.session_state.nav_page == "📊 Model Benchmarks & Comparison":
         st.markdown('<div class="section-header" style="margin-top:0;">📊 Machine Learning Model Comparative Evaluation</div>', unsafe_allow_html=True)
 
     # Metrics from actual evaluation on NASA C-MAPSS FD001 official test set (100 engines)
-    benchmark_data = [
-        {"Model": "Linear Regression", "Test RMSE": 22.19, "Test MAE": 17.37, "Test R²": 0.6935, "Type": "Baseline Classical"},
-        {"Model": "Random Forest", "Test RMSE": 19.76, "Test MAE": 14.95, "Test R²": 0.7568, "Type": "Ensemble Bagging"},
-        {"Model": "XGBoost (Tuned - Final)", "Test RMSE": 18.91, "Test MAE": 14.35, "Test R²": 0.7773, "Type": "Gradient Boosted Trees"},
-        {"Model": "LSTM Network (PyTorch)", "Test RMSE": 13.23, "Test MAE": 9.45, "Test R²": 0.8910, "Type": "Sequential Recurrent DL"},
-    ]
-    bench_df = pd.DataFrame(benchmark_data)
+    comp_csv_path = os.path.join(PROJECT_ROOT, "models", "model_comparison.csv")
+    if os.path.exists(comp_csv_path):
+        try:
+            bench_df = pd.read_csv(comp_csv_path)
+            # Normalize column names if needed
+            if "Test_RMSE" in bench_df.columns:
+                bench_df = bench_df.rename(columns={"Test_RMSE": "Test RMSE", "Test_MAE": "Test MAE", "Test_R2": "Test R²"})
+        except Exception:
+            bench_df = None
+    else:
+        bench_df = None
+
+    if bench_df is None:
+        benchmark_data = [
+            {"Model": "Linear Regression", "Test RMSE": 22.99, "Test MAE": 18.82, "Test R²": 0.6709, "Architecture": "Classical Baseline"},
+            {"Model": "Random Forest", "Test RMSE": 19.34, "Test MAE": 14.35, "Test R²": 0.7671, "Architecture": "Ensemble Bagging"},
+            {"Model": "Gradient Boosting", "Test RMSE": 18.85, "Test MAE": 14.34, "Test R²": 0.7788, "Architecture": "Ensemble Boosting (GBDT)"},
+            {"Model": "XGBoost (Tuned)", "Test RMSE": 18.91, "Test MAE": 14.35, "Test R²": 0.7773, "Architecture": "Gradient Boosted Trees"},
+            {"Model": "LSTM Network", "Test RMSE": 13.23, "Test MAE": 9.45, "Test R²": 0.8910, "Architecture": "Sequential Recurrent DL"},
+        ]
+        bench_df = pd.DataFrame(benchmark_data)
+
+    st.button(
+        "🔬 Go to Individual Model Demonstrations Console",
+        type="primary",
+        use_container_width=True,
+        on_click=navigate_to,
+        args=("🔬 Individual Model Demonstrations",),
+        key="btn_goto_ind_demos_from_p4"
+    )
+    st.markdown("<br>", unsafe_allow_html=True)
 
     c1, c2 = st.columns(2)
     with c1:

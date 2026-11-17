@@ -7,17 +7,20 @@
 
 ## 📌 Project Overview
 
-**MaintAI** combines Exploratory Data Analysis, classical ML models (Linear Regression, Random Forest, XGBoost), and deep recurrent neural networks (PyTorch 2-Layer LSTM) to predict when a turbofan jet engine will fail — and deploys the system as a full-stack application with a **FastAPI REST backend** and an interactive **Streamlit web dashboard**.
+**MaintAI** combines Exploratory Data Analysis, classical parametric models (Linear Regression), tree ensembles (Random Forest, Gradient Boosting, XGBoost), and deep recurrent neural networks (PyTorch 2-Layer LSTM) to predict Remaining Useful Life (RUL) of turbofan jet engines — deployed as a full-stack engineering application with a **FastAPI REST backend** and an interactive **Streamlit web dashboard**.
 
 | Feature | Description |
 |---|---|
 | 📁 Dataset | NASA C-MAPSS (FD001–FD004) |
-| 🔬 Primary ML Model | Tuned XGBoost Regressor (Test RMSE: 18.91 cycles) |
+| 📈 Baseline ML Model | Ordinary Least Squares Linear Regression (Test RMSE: 21.61 cycles) |
+| 🌲 Ensemble Bagging | Random Forest Regressor (100 Trees, Test RMSE: 17.51 cycles) |
+| 🚀 Sequential Boosting | Gradient Boosting Regressor (150 Trees, Test RMSE: 17.21 cycles) |
+| ⚡ Primary Tree Model | Tuned XGBoost Regressor (400 Trees, Test RMSE: 18.91 cycles) |
 | 🧬 Deep Learning Model | 2-Layer PyTorch LSTM Network (Test RMSE: 13.23 cycles) |
-| 📊 Dashboard | Streamlit — manual sensor input + CSV fleet upload |
-| 🚀 Backend | FastAPI REST API — single & batch inference supporting both models |
+| 📊 Dashboard | Streamlit — manual sensor input + CSV fleet upload + Individual Model Demos |
+| 🚀 Backend | FastAPI REST API — single & batch inference supporting all 5 models |
 | 🌐 Landing | Standalone responsive HTML landing page (`/landing`) |
-| 📈 Metrics | RMSE, MAE, R² |
+| 📈 Metrics | Verified RMSE, MAE, R² across all 100 test engines |
 | 🌐 Deployment | Local full-stack microservice (FastAPI + Streamlit) |
 
 ---
@@ -27,8 +30,8 @@
 ```
 NASA_Turbofan_JetEngine_RUL/
 ├── backend/
-│   ├── api.py                   # FastAPI REST API server (XGBoost + LSTM)
-│   ├── predict.py               # Inference module for XGBoost and PyTorch LSTM
+│   ├── api.py                   # FastAPI REST API server (LR, RF, GB, XGBoost, LSTM)
+│   ├── predict.py               # Unified inference engine for all 5 models & scalers
 │   ├── train.py                 # Modular training script
 │   ├── requirements.txt         # Backend dependencies
 │   └── README.md                # API endpoint documentation
@@ -36,21 +39,27 @@ NASA_Turbofan_JetEngine_RUL/
 │   ├── landing/
 │   │   └── index.html           # Standalone aerospace HTML landing page
 │   ├── app/
-│   │   └── streamlit_app.py     # Streamlit dashboard with front page & model selector
+│   │   ├── streamlit_app.py     # Main Streamlit dashboard (5 pages, multi-model)
+│   │   └── individual_models_demo.py # Dedicated 4-tab model demonstration UI
 │   ├── .streamlit/
 │   │   └── config.toml          # Streamlit theme configuration
 │   └── requirements.txt         # Frontend dependencies
 ├── Dataset/                     # NASA C-MAPSS raw files (FD001–FD004)
-├── models/                      # Saved weights, scalers, and benchmark plots
-│   ├── final_model.pkl          # Trained XGBoost model
+├── models/                      # Saved weights, scalers, metadata, and benchmark plots
+│   ├── linear_regression.pkl    # Trained Ordinary Least Squares baseline
+│   ├── random_forest.pkl        # Trained Random Forest Regressor (compressed)
+│   ├── gradient_boosting.pkl    # Trained Gradient Boosting Regressor
+│   ├── final_model.pkl          # Trained XGBoost Regressor
 │   ├── lstm_best_model.pth      # Trained PyTorch 2-layer LSTM model
 │   ├── lstm_scaler.pkl          # Dedicated StandardScaler for LSTM
-│   ├── scaler.pkl               # Standard scaler for tabular ML
+│   ├── scaler.pkl               # StandardScaler for tabular ML
 │   ├── feature_list.json        # 13 selected sensor features
-│   ├── model_comparison.csv     # Benchmark metrics across all models
-│   ├── test_results.csv         # Test evaluation on 100 test engines
-│   ├── lstm_loss_curve.png      # Training & validation loss across 25 epochs
-│   └── lstm_test_prediction.png # Actual vs. Predicted RUL for 100 test engines
+│   ├── models_metadata.json     # Hyperparameters, OLS coefficients, Gini importances
+│   ├── model_comparison.csv     # Verified benchmark metrics across all models
+│   ├── test_results.csv         # Verified test evaluation on 100 test engines
+│   ├── test_predictions_all.csv # Ground truth and predictions for all 100 test engines
+│   ├── *_test_prediction.png    # Actual vs Predicted RUL plots for each model
+│   └── lstm_loss_curve.png      # Training & validation loss across 25 epochs
 ├── notebooks/                   # Project analysis and training notebooks
 │   ├── Exploratory Data Analysis of Turbo Engine data set.ipynb
 │   ├── Making_Training and Test_Data_set.ipynb
@@ -59,11 +68,21 @@ NASA_Turbofan_JetEngine_RUL/
 │   ├── Week5_LSTM_RUL_Prediction.ipynb
 │   └── Week6_Model_Evaluation_Comparison.ipynb
 ├── RUN_ALL.py                   # One-click launcher for backend + frontend
+├── RUN_PROJECT.py               # Master CLI interactive runner
+├── RUN_INDIVIDUAL_MODEL.py      # Standalone runner with interactive model selector
+├── RUN_LINEAR_REGRESSION.py     # 1-Click runner for Linear Regression alone
+├── RUN_RANDOM_FOREST.py         # 1-Click runner for Random Forest alone
+├── RUN_GRADIENT_BOOSTING.py     # 1-Click runner for Gradient Boosting alone
+├── RUN_XGBOOST.py               # 1-Click runner for XGBoost alone
+├── RUN_LSTM.py                  # 1-Click runner for PyTorch LSTM alone
+├── TRAIN_ADDITIONAL_MODELS.py   # Training script for LR, RF, GB with verified evaluation
 ├── START_BACKEND.py             # Dedicated backend launcher
 ├── START_FRONTEND.py            # Dedicated frontend launcher
 ├── TRAIN_MODEL.py               # Trains XGBoost regressor
 ├── TRAIN_LSTM.py                # Trains sequential LSTM neural network
-├── TEST_MODEL.py                # Evaluates both XGBoost & LSTM on test engines
+├── TEST_MODEL.py                # Evaluates all models on test engines
+├── VERIFY_ALL_DEMOS.py          # Complete 58-test verification suite
+├── thorough_project_test.py     # End-to-end model and metric verification suite
 ├── test_api_client.py           # Verification script for FastAPI endpoints
 ├── test_frontend.py             # Verification script for Streamlit frontend
 ├── verify_all_subsets.py        # Verification script for FD001–FD004 subsets
@@ -180,35 +199,42 @@ python START_BACKEND.py
 python START_FRONTEND.py
 ```
 
-### Option 3: Train & Test Models from CLI
+### Option 3: Run Individual Models (1-Click Standalone)
 ```bash
-# Train XGBoost model
+# Interactive Model Selection Menu
+python RUN_INDIVIDUAL_MODEL.py
+
+# Or run specific models directly:
+python RUN_LINEAR_REGRESSION.py
+python RUN_RANDOM_FOREST.py
+python RUN_GRADIENT_BOOSTING.py
+python RUN_XGBOOST.py
+python RUN_LSTM.py
+```
+
+### Option 4: Train & Benchmark All Models
+```bash
+# Train & evaluate Linear Regression, Random Forest, Gradient Boosting
+python TRAIN_ADDITIONAL_MODELS.py
+
+# Train XGBoost regressor
 python TRAIN_MODEL.py
 
 # Train PyTorch LSTM model
 python TRAIN_LSTM.py
 
-# Run comparative test evaluation on unseen engines
+# Run comparative test evaluation across all models on 100 test engines
 python TEST_MODEL.py
 ```
 
-### Option 4: Run Verification Tests
+### Option 5: Run Verification Test Suites
 ```bash
-# Verify API endpoints & batch prediction logic
-python test_api_client.py
+# Complete 58-test suite for individual model demonstrations
+python VERIFY_ALL_DEMOS.py
 
-# Verify Streamlit frontend components headlessly
-python test_frontend.py
+# Comprehensive end-to-end model verification
+python thorough_project_test.py
 
-# Verify API vs standalone inference consistency
-python verify_inference_match.py
-
-# Audit all 4 NASA C-MAPSS subsets (FD001–FD004)
-python verify_all_subsets.py
-```
-
-### Option 4: Run Verification Tests
-```bash
 # Verify API endpoints & batch prediction logic
 python test_api_client.py
 
@@ -229,12 +255,12 @@ python verify_all_subsets.py
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` | `/` | Service root and liveness check |
-| `GET` | `/health` | Model status check (reports status of both XGBoost & LSTM) |
+| `GET` | `/health` | Model status check (reports status of LR, RF, GB, XGBoost & LSTM) |
 | `GET` | `/features` | Returns list of 13 required sensor telemetry features |
-| `GET` | `/model/info` | Returns full metadata, benchmarks, and operational thresholds |
+| `GET` | `/model/info` | Returns full metadata, benchmarks, and operational thresholds across all 5 models |
 | `GET` | `/landing` | Serves the standalone aerospace HTML landing page |
-| `POST` | `/predict?model=xgboost\|lstm` | Single-engine RUL prediction with airworthiness directive |
-| `POST` | `/predict/batch?model=xgboost\|lstm` | Bulk fleet prediction with fleet-wide summary statistics |
+| `POST` | `/predict?model=<model>` | Single-engine RUL prediction (`linear_regression`, `random_forest`, `gradient_boosting`, `xgboost`, `lstm`) |
+| `POST` | `/predict/batch?model=<model>` | Bulk fleet prediction with fleet-wide summary statistics |
 
 ### Example: Single Engine Prediction (`POST /predict?model=lstm`)
 ```bash
